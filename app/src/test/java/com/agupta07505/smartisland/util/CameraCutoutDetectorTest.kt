@@ -32,8 +32,8 @@ class CameraCutoutDetectorTest {
         // Center X = 540, Screen Center X = 540 -> xOffsetPx = 0 -> xOffsetDp = 0
         assertEquals(0f, result.xOffsetDp, 0.01f)
         assertEquals(0f, result.yOffsetDp, 0.01f)
-        // width = 100px / 2.75 + 24dp = ~60.36dp -> clamped to MIN_WIDTH 76dp
-        assertEquals(76f, result.widthDp, 0.01f)
+        // width = 100px / 2.75 + 24dp = ~60.36dp (above MIN_WIDTH 60dp)
+        assertEquals(60.36f, result.widthDp, 0.01f)
     }
 
     @Test
@@ -55,5 +55,26 @@ class CameraCutoutDetectorTest {
         // Center X = 90, Screen Center X = 540 -> xOffsetPx = -450 -> xOffsetDp = -180 -> clamped to MIN_X_OFFSET (-140)
         assertEquals(-140f, result.xOffsetDp, 0.01f)
         assertEquals(4f, result.yOffsetDp, 0.01f) // 10 / 2.5 = 4dp
+    }
+
+    @Test
+    fun testWaterdropNotchCutoutOffset() {
+        val screenWidthPx = 1080
+        val density = 2.75f
+
+        // Redmi Note 8 Pro Dot Drop notch (centered at top bezel, top = 0)
+        val result = CameraCutoutDetector.calculateCutoutOffset(
+            left = 490,
+            top = 0,
+            right = 590,
+            bottom = 85,
+            screenWidthPx = screenWidthPx,
+            density = density
+        )
+
+        assertTrue(result.hasHardwareCutout)
+        assertEquals(0f, result.xOffsetDp, 0.01f)
+        assertEquals(0f, result.yOffsetDp, 0.01f)
+        assertTrue(result.yOffsetDp <= 2f)
     }
 }

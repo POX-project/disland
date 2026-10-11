@@ -16,6 +16,7 @@ import com.agupta07505.smartisland.data.SmartIslandSettings
 import com.agupta07505.smartisland.data.SmartIslandSettingsRepository
 import com.agupta07505.smartisland.model.IslandMode
 import com.agupta07505.smartisland.model.IslandNotification
+import com.agupta07505.smartisland.util.NotificationFilter
 import com.agupta07505.smartisland.util.runSuspendCatchingLogged
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
@@ -61,9 +62,11 @@ class IslandViewModel(
     )
 
     val expanded = MutableStateFlow(false)
+    val expandedHeightDp = MutableStateFlow(150f)
     val selectedIndex = MutableStateFlow(0)
     val isLocked = MutableStateFlow(false)
     val isInputActive = MutableStateFlow(false)
+    val isFullWidth = MutableStateFlow(true)
 
     val mode: StateFlow<IslandMode> = combine(visibleNotifications, selectedIndex) { list, idx ->
         list.getOrNull(idx)?.mode ?: IslandMode.Empty
@@ -76,22 +79,38 @@ class IslandViewModel(
     private var autoCollapseJob: Job? = null
 
     init {
+        var previousSize = 0
         viewModelScope.launch {
             runSuspendCatchingLogged(TAG, "Notifications collector failed") {
                 visibleNotifications.collect { list ->
-                    selectedIndex.update { currentSelected ->
-                        currentSelected.coerceIn(0, (list.size - 1).coerceAtLeast(0))
+                    val newSize = list.size
+                    if (newSize > previousSize && newSize > 0) {
+                        selectedIndex.value = newSize - 1
+                    } else {
+                        selectedIndex.update { currentSelected ->
+                            currentSelected.coerceIn(0, (newSize - 1).coerceAtLeast(0))
+                        }
                     }
+                    previousSize = newSize
                 }
             }
         }
         viewModelScope.launch {
             runSuspendCatchingLogged(TAG, "Auto-expand collector failed") {
                 notificationRepo.autoExpandEvent.collect { key ->
-                    val list = visibleNotifications.value
-                    val index = list.indexOfFirst { it.key == key }
+                    var list = visibleNotifications.value
+                    var index = list.indexOfFirst { it.key == key }
+                    if (index < 0) {
+                        delay(25L)
+                        list = visibleNotifications.value
+                        index = list.indexOfFirst { it.key == key }
+                    }
                     if (index >= 0) {
                         selectedIndex.value = index
+                        val delayMs = settings.value.animationDelayMs.toLong()
+                        if (delayMs > 0) {
+                            delay(delayMs)
+                        }
                         expand()
                     }
                 }
@@ -146,6 +165,12 @@ class IslandViewModel(
         }
     }
 
+    fun updateExpandedHeight(heightDp: Float) {
+        if (kotlin.math.abs(expandedHeightDp.value - heightDp) > 1f) {
+            expandedHeightDp.value = heightDp
+        }
+    }
+
     private var lastToggleTimeMs = 0L
 
     fun toggleExpanded() {
@@ -189,7 +214,9 @@ class IslandViewModel(
         if (index in list.indices) {
             val notification = list[index]
             notificationRepo.removeNotification(notification.key)
-            notificationRepo.sendCommand(SmartIslandCommand.CancelNotification(notification.key))
+            if (!NotificationFilter.isMessagingPackage(notification.packageName)) {
+                notificationRepo.sendCommand(SmartIslandCommand.CancelNotification(notification.key))
+            }
         }
         collapse()
     }
@@ -197,7 +224,9 @@ class IslandViewModel(
     fun dismissAllNotifications() {
         val list = visibleNotifications.value
         for (notification in list) {
-            notificationRepo.sendCommand(SmartIslandCommand.CancelNotification(notification.key))
+            if (!NotificationFilter.isMessagingPackage(notification.packageName)) {
+                notificationRepo.sendCommand(SmartIslandCommand.CancelNotification(notification.key))
+            }
         }
         notificationRepo.removeAllNotifications()
         collapse()

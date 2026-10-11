@@ -8,6 +8,7 @@
 package com.agupta07505.smartisland.ui
 
 import com.agupta07505.smartisland.ui.expanded.IslandExpandedContent
+import androidx.compose.animation.core.FastOutLinearInEasing
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateDp
@@ -15,7 +16,9 @@ import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.core.updateTransition
+import com.agupta07505.smartisland.util.CameraCutoutDetector
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -41,6 +44,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
@@ -49,9 +53,18 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Outline
+import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.ui.graphics.drawscope.DrawStyle
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
@@ -97,7 +110,8 @@ fun IslandOverlayView(
     isInputActive: Boolean = false,
     onReplyStateChanged: (Boolean) -> Unit = {},
     onDismissAllNotifications: () -> Unit = {},
-    isFullWidth: Boolean = true
+    isFullWidth: Boolean = true,
+    onExpandedHeightChanged: (Float) -> Unit = {}
 ) {
     // Fix #1: rememberUpdatedState ensures the lambda is always fresh
     // even though pointerInput(Unit) never restarts its coroutine
@@ -110,27 +124,37 @@ fun IslandOverlayView(
     val haptic = LocalHapticFeedback.current
 
     val scope = rememberCoroutineScope()
-    var dragOffset by remember { mutableStateOf(0f) }
+    var dragOffsetY by remember { mutableFloatStateOf(0f) }
+    var dragOffsetX by remember { mutableFloatStateOf(0f) }
 
     val context = LocalContext.current
     val displayMetrics = context.resources.displayMetrics
     val density = LocalDensity.current
     val screenWidth = with(density) { displayMetrics.widthPixels.toDp() }
     val screenCenter = screenWidth / 2f
-    val expandedWidth = ((displayMetrics.widthPixels / displayMetrics.density) * EXPANDED_WIDTH_RATIO).dp
+    val expandedWidth = (screenWidth - (settings.expandedScreenMargin * 2f).dp).coerceIn(120.dp, screenWidth)
     val transition = updateTransition(targetState = expanded, label = "islandTransition")
 
-    val sizeSpec = spring<androidx.compose.ui.unit.Dp>(
-        dampingRatio = 0.72f,
-        stiffness = 520f
-    )
-    val sizeSpecFloat = spring<Float>(
-        dampingRatio = 0.72f,
-        stiffness = 520f
+    // Apple & Xiaomi fluid physics spring curves
+    val widthSpec = spring<androidx.compose.ui.unit.Dp>(
+        dampingRatio = settings.animationSpringDamping,
+        stiffness = settings.animationSpringStiffness
     )
     val heightSpec = spring<androidx.compose.ui.unit.Dp>(
-        dampingRatio = 0.76f,
-        stiffness = 520f
+        dampingRatio = (settings.animationSpringDamping - 0.03f).coerceIn(0.66f, 0.85f),
+        stiffness = (settings.animationSpringStiffness * 0.84f).coerceIn(300f, 650f)
+    )
+    val collapseWidthSpec = spring<androidx.compose.ui.unit.Dp>(
+        dampingRatio = settings.animationSpringDamping,
+        stiffness = (settings.animationSpringStiffness * 1.08f).coerceIn(380f, 800f)
+    )
+    val collapseHeightSpec = spring<androidx.compose.ui.unit.Dp>(
+        dampingRatio = settings.animationSpringDamping,
+        stiffness = (settings.animationSpringStiffness * 1.05f).coerceIn(380f, 800f)
+    )
+    val radiusSpec = spring<androidx.compose.ui.unit.Dp>(
+        dampingRatio = 0.74f,
+        stiffness = (settings.animationSpringStiffness * 0.95f).coerceIn(350f, 700f)
     )
     val alphaSpec = tween<Float>(
         durationMillis = 190,
@@ -149,30 +173,28 @@ fun IslandOverlayView(
     LaunchedEffect(activeMode, notifications.isEmpty()) {
         if (!expanded) {
             expandedHeight = if (notifications.isEmpty()) 135.dp else defaultEstimatedHeightForMode(activeMode)
+            onExpandedHeightChanged(expandedHeight.value)
         }
     }
 
     val compactGap = COMPACT_INDICATOR_GAP_DP.dp
-    val miniPillWidth = settings.width.dp
-    val circleSize = settings.height.dp
+    val effectiveCollapsedWidth = settings.width.dp
+    val effectiveCollapsedHeight = settings.height.dp
+    val miniPillWidth = effectiveCollapsedWidth
+    val circleSize = effectiveCollapsedHeight
     val compactShapes = compactNotificationShapes(notifications.size, expanded)
-    val hasCompanion = notifications.size >= 2
-    val collapsedGroupWidth = settings.width.dp + if (hasCompanion) compactGap + circleSize else 0.dp
-    val collapsedMainLeft = (screenCenter + settings.xOffset.dp - settings.width.dp / 2f)
-        .coerceIn(
-            compactGap,
-            (screenWidth - collapsedGroupWidth - compactGap).coerceAtLeast(compactGap)
-        )
-    val collapsedMainOffset = if (isFullWidth) {
-        collapsedMainLeft + settings.width.dp / 2f - screenCenter
+    val hasCompanion = settings.splitIslandEnabled && notifications.size >= 2
+    val collapsedGroupWidth = effectiveCollapsedWidth + if (hasCompanion) compactGap + circleSize else 0.dp
+    val collapsedMainOffset = if (hasCompanion) {
+        settings.xOffset.dp - (compactGap + circleSize) / 2f
     } else {
-        if (hasCompanion) -(compactGap + circleSize) / 2f else 0.dp
+        settings.xOffset.dp
     }
-    val expandedTopOffset = if (hasCompanion) {
-        statusBarHeight.dp.coerceAtLeast(circleSize + compactGap)
-    } else {
-        statusBarHeight.dp
-    }
+    val collapsedSecondaryOffset = settings.xOffset.dp + (effectiveCollapsedWidth + compactGap) / 2f
+    val hasHardwareNotch = remember { CameraCutoutDetector.hasHardwareNotch(context) }
+    val isNotchActive = settings.pinchNotchEnabled || hasHardwareNotch
+    val effectiveCollapsedY = if (isFullWidth) settings.yOffset.dp else 0.dp
+    val expandedTopOffset = settings.expandedTopMargin.dp
     val isIdleHiding = settings.hideWhenIdle && notifications.isEmpty()
 
     var isAutoHidden by remember { mutableStateOf(false) }
@@ -197,53 +219,172 @@ fun IslandOverlayView(
 
     val isHiding = isIdleHiding || (settings.autoHidePill && isAutoHidden)
 
-    val width by transition.animateDp(transitionSpec = { sizeSpec }, label = "islandWidth") {
-        if (it) expandedWidth else if (isHiding) 0.dp else settings.width.dp
+    val animatedExpandedHeight by animateDpAsState(
+        targetValue = expandedHeight,
+        animationSpec = heightSpec,
+        label = "animatedExpandedHeight"
+    )
+
+    val width by transition.animateDp(
+        transitionSpec = {
+            if (targetState) widthSpec else collapseWidthSpec
+        },
+        label = "islandWidth"
+    ) {
+        if (it) expandedWidth else if (isHiding) 0.dp else effectiveCollapsedWidth
     }
-    val height by transition.animateDp(transitionSpec = { heightSpec }, label = "islandHeight") {
-        if (it) expandedHeight else if (isHiding) 0.dp else settings.height.dp
+    val height by transition.animateDp(
+        transitionSpec = {
+            if (targetState) heightSpec else collapseHeightSpec
+        },
+        label = "islandHeight"
+    ) {
+        if (it) animatedExpandedHeight else if (isHiding) 0.dp else effectiveCollapsedHeight
     }
-    val yOffset by transition.animateDp(transitionSpec = { sizeSpec }, label = "islandYOffset") {
-        if (it) expandedTopOffset else 0.dp
+    val yOffset by transition.animateDp(
+        transitionSpec = {
+            if (targetState) {
+                heightSpec
+            } else {
+                // When collapsing: anchor eagerly to the top of the screen (0.dp)
+                // so the island card retracts straight upward into the notch/top bezel
+                // without stopping or lingering under the camera cutout!
+                tween(durationMillis = 80, easing = FastOutLinearInEasing)
+            }
+        },
+        label = "islandYOffset"
+    ) {
+        if (it) expandedTopOffset else effectiveCollapsedY
     }
-    val radius by transition.animateDp(transitionSpec = { sizeSpec }, label = "islandRadius") {
+    val radius by transition.animateDp(
+        transitionSpec = { radiusSpec },
+        label = "islandRadius"
+    ) {
         if (it) 34.dp else if (isHiding) 0.dp else settings.cornerRadius.dp
     }
-    val animatedXOffset by transition.animateDp(transitionSpec = { sizeSpec }, label = "islandXOffset") {
+    val animatedXOffset by transition.animateDp(
+        transitionSpec = {
+            if (targetState) widthSpec else collapseWidthSpec
+        },
+        label = "islandXOffset"
+    ) {
         if (it) 0.dp else collapsedMainOffset
     }
 
+    val pinchProgress by transition.animateFloat(
+        transitionSpec = {
+            if (targetState) {
+                tween(durationMillis = 110, easing = FastOutSlowInEasing)
+            } else {
+                spring(
+                    dampingRatio = settings.animationSpringDamping,
+                    stiffness = (settings.animationSpringStiffness * 1.05f).coerceIn(380f, 800f)
+                )
+            }
+        },
+        label = "pinchProgress"
+    ) {
+        if (it || !isNotchActive) 0f else 1f
+    }
+
     val collapsedAlpha by transition.animateFloat(
-        transitionSpec = { alphaSpec },
+        transitionSpec = {
+            if (targetState) {
+                tween(durationMillis = 75, easing = FastOutLinearInEasing)
+            } else {
+                val delay = (settings.animationDelayMs.coerceAtLeast(0) * 0.25f).toInt().coerceAtMost(50)
+                tween(
+                    durationMillis = 140,
+                    delayMillis = 40 + delay,
+                    easing = FastOutSlowInEasing
+                )
+            }
+        },
         label = "collapsedAlpha"
     ) {
         if (it || isHiding) 0f else 1f
     }
 
+    val collapsedScale by transition.animateFloat(
+        transitionSpec = {
+            if (targetState) {
+                tween(durationMillis = 75, easing = FastOutLinearInEasing)
+            } else {
+                spring(
+                    dampingRatio = 0.70f,
+                    stiffness = (settings.animationSpringStiffness * 1.05f).coerceIn(400f, 750f)
+                )
+            }
+        },
+        label = "collapsedScale"
+    ) {
+        if (it) 0.82f else 1f
+    }
+
     val expandedAlpha by transition.animateFloat(
-        transitionSpec = { alphaSpec },
+        transitionSpec = {
+            if (targetState) {
+                val delay = (settings.animationDelayMs.coerceAtLeast(0) * 0.25f).toInt().coerceAtMost(50)
+                tween(
+                    durationMillis = 160,
+                    delayMillis = 30 + delay,
+                    easing = FastOutSlowInEasing
+                )
+            } else {
+                tween(
+                    durationMillis = 80,
+                    easing = FastOutLinearInEasing
+                )
+            }
+        },
         label = "expandedAlpha"
     ) {
         if (it) 1f else 0f
     }
 
     val contentScale by transition.animateFloat(
-        transitionSpec = { sizeSpecFloat },
+        transitionSpec = {
+            if (targetState) {
+                spring(
+                    dampingRatio = (settings.animationSpringDamping - 0.02f).coerceIn(0.68f, 0.82f),
+                    stiffness = (settings.animationSpringStiffness * 0.88f).coerceIn(320f, 600f)
+                )
+            } else {
+                tween(durationMillis = 80, easing = FastOutLinearInEasing)
+            }
+        },
         label = "contentScale"
     ) {
-        if (it) 1f else 0.95f
+        if (it) 1f else 0.90f
     }
 
     val contentSlideY by transition.animateDp(
-        transitionSpec = { sizeSpec },
+        transitionSpec = {
+            if (targetState) {
+                spring(
+                    dampingRatio = (settings.animationSpringDamping - 0.02f).coerceIn(0.68f, 0.82f),
+                    stiffness = (settings.animationSpringStiffness * 0.88f).coerceIn(320f, 600f)
+                )
+            } else {
+                tween(durationMillis = 80, easing = FastOutLinearInEasing)
+            }
+        },
         label = "contentSlideY"
     ) {
-        if (it) 0.dp else (-6).dp
+        if (it) 0.dp else (-8).dp
     }
 
     val safeWidth = width.coerceAtLeast(0.dp)
     val safeHeight = height.coerceAtLeast(0.dp)
     val safeRadius = radius.coerceAtLeast(0.dp)
+
+    val islandShape = remember(pinchProgress, safeRadius, isNotchActive) {
+        if (isNotchActive || pinchProgress > 0f) {
+            PinchIslandShape(pinchProgress, safeRadius)
+        } else {
+            RoundedCornerShape(safeRadius)
+        }
+    }
 
     // Tactile spring scale bounce animation only when user switches between active notifications
     val switchScaleAnim = remember { androidx.compose.animation.core.Animatable(1f) }
@@ -272,14 +413,14 @@ fun IslandOverlayView(
     }
 
     // Dual Pill (Multi-Tasking Split Island) Detection:
-    // When 2 or more notifications exist (e.g. Music + Notification/Timer/Call), split into Main Pill + Secondary Bubble
-    val secondaryNotification = if (notifications.size >= 2) {
+    // When 2 or more notifications exist and split island is enabled, split into Main Pill + Secondary Bubble
+    val secondaryNotification = if (settings.splitIslandEnabled && notifications.size >= 2) {
         notifications.firstOrNull { it.key != activeNotification?.key }
     } else null
     val secondaryIndex = if (secondaryNotification != null) {
         notifications.indexOfFirst { it.key == secondaryNotification.key }
     } else -1
-    val tertiaryNotification = if (notifications.size >= 3) {
+    val tertiaryNotification = if (settings.splitIslandEnabled && notifications.size >= 3) {
         notifications.firstOrNull {
             it.key != activeNotification?.key && it.key != secondaryNotification?.key
         }
@@ -329,12 +470,7 @@ fun IslandOverlayView(
         label = "tertiaryScale"
     )
 
-    val expandedCompactX = collapsedMainLeft
-    val collapsedSecondaryOffset = if (isFullWidth) {
-        collapsedMainLeft + settings.width.dp + compactGap - screenCenter + circleSize / 2f
-    } else {
-        (settings.width.dp + compactGap) / 2f
-    }
+    val expandedCompactX = screenCenter + settings.xOffset.dp - effectiveCollapsedWidth / 2f
     val secondaryOffset by animateDpAsState(
         targetValue = when {
             !expanded -> collapsedSecondaryOffset
@@ -345,21 +481,8 @@ fun IslandOverlayView(
         label = "secondaryOffset"
     )
 
-    // Outer Box: Fills the entire WindowManager window bounds (which are padded for easy touch)
-    val outerModifier = if (currentExpanded) {
-        modifier
-            .fillMaxSize()
-            .pointerInput(Unit) {
-                detectTapGestures {
-                    if (isInputActive) {
-                        onReplyStateChanged(false)
-                    }
-                    currentOnToggle()
-                }
-            }
-    } else {
-        modifier.fillMaxSize()
-    }
+    // Outer Box: Does not intercept touches outside the island card so underlying items receive them
+    val outerModifier = modifier.fillMaxSize()
 
     Box(
         modifier = outerModifier,
@@ -374,6 +497,7 @@ fun IslandOverlayView(
                     .height(settings.height.dp)
                     .graphicsLayer {
                         translationX = collapsedMainOffset.toPx()
+                        translationY = effectiveCollapsedY.toPx()
                     }
                     .pointerInput(Unit) {
                         detectTapGestures {
@@ -396,24 +520,51 @@ fun IslandOverlayView(
                 .width(safeWidth)
                 .height(safeHeight)
                 .graphicsLayer {
-                    translationX = animatedXOffset.toPx()
-                    translationY = yOffset.toPx() + dragOffset
+                    translationX = animatedXOffset.toPx() + dragOffsetX
+                    translationY = yOffset.toPx() + dragOffsetY
                     scaleX = switchScaleAnim.value
                     scaleY = switchScaleAnim.value
                 }
                 .then(
-                    if (settings.enableShadow && !isHiding) {
+                    if (settings.enableShadow && !isHiding && settings.shadowElevation > 0f) {
                         Modifier.shadow(
-                            elevation = if (currentExpanded) 22.dp else 14.dp,
-                            shape = RoundedCornerShape(safeRadius),
+                            elevation = if (currentExpanded) (settings.shadowElevation * 1.25f).dp else settings.shadowElevation.dp,
+                            shape = islandShape,
                             clip = false,
-                            ambientColor = Color.Black,
-                            spotColor = Color.Black
+                            ambientColor = Color(settings.shadowColor).copy(alpha = settings.shadowAlpha),
+                            spotColor = Color(settings.shadowColor).copy(alpha = settings.shadowAlpha)
                         )
                     } else Modifier
                 )
-                .clip(RoundedCornerShape(safeRadius))
-                .background(Color.Black.copy(alpha = settings.opacity))
+                .clip(islandShape)
+                .background(Color(settings.islandBackgroundColor).copy(alpha = settings.opacity))
+                .then(
+                    if (settings.borderWidth > 0f && settings.borderAlpha > 0f) {
+                        Modifier.border(
+                            width = settings.borderWidth.dp,
+                            color = Color(settings.borderColor).copy(alpha = settings.borderAlpha),
+                            shape = islandShape
+                        )
+                    } else Modifier
+                )
+                .drawWithContent {
+                    drawContent()
+                    if (settings.innerShadowRadius > 0f && settings.innerShadowAlpha > 0f) {
+                        val strokeRadiusPx = settings.innerShadowRadius.dp.toPx()
+                        val steps = 4
+                        val innerColor = Color(settings.innerShadowColor)
+                        for (step in 1..steps) {
+                            val stepFraction = step.toFloat() / steps
+                            val currentStrokePx = strokeRadiusPx * stepFraction * 2f
+                            val currentAlpha = (settings.innerShadowAlpha / steps) * (1f - stepFraction * 0.4f)
+                            drawShapeOutline(
+                                outline = islandShape.createOutline(size, layoutDirection, this),
+                                color = innerColor.copy(alpha = currentAlpha),
+                                style = Stroke(width = currentStrokePx)
+                            )
+                        }
+                    }
+                }
                 .pointerInput(displayMetrics.density, isInputActive) {
                     if (isInputActive) return@pointerInput
                     awaitEachGesture {
@@ -421,8 +572,10 @@ fun IslandOverlayView(
                         userInteractionTimestamp = System.currentTimeMillis()
                         val pressTimeMs = System.currentTimeMillis()
                         var isHoldRegistered = false
-                        var dragAccumulator = 0f
+                        var dragAccumulatorX = 0f
+                        var dragAccumulatorY = 0f
                         var isDragging = false
+                        var isDraggingHorizontal = false
 
                         val holdJob = scope.launch {
                             kotlinx.coroutines.delay(HOLD_GESTURE_THRESHOLD_MS)
@@ -442,28 +595,69 @@ fun IslandOverlayView(
                                 val totalElapsedMs = System.currentTimeMillis() - pressTimeMs
                                 val swipeUpThreshold = -SWIPE_THRESHOLD_DP * displayMetrics.density
                                 val swipeDownThreshold = SWIPE_THRESHOLD_DP * displayMetrics.density
+                                val swipeDismissThreshold = 45f * displayMetrics.density
 
-                                if (currentExpanded) {
-                                    if (isDragging && dragOffset < swipeUpThreshold) {
-                                        if (isHoldRegistered || totalElapsedMs >= HOLD_GESTURE_THRESHOLD_MS) {
-                                            currentOnDismissAll()
-                                        } else {
+                                if (isDraggingHorizontal) {
+                                    // DEDICATED HORIZONTAL SWIPE TO DISMISS
+                                    // Completely distinct from the vertical collapse gesture!
+                                    if (abs(dragOffsetX) > swipeDismissThreshold) {
+                                        triggerHapticVibration(context)
+                                        val exitTarget = if (dragOffsetX > 0) displayMetrics.widthPixels.toFloat() else -displayMetrics.widthPixels.toFloat()
+                                        scope.launch {
+                                            androidx.compose.animation.core.Animatable(dragOffsetX).animateTo(
+                                                targetValue = exitTarget,
+                                                animationSpec = tween(120, easing = FastOutLinearInEasing)
+                                            )
                                             currentOnDismiss()
+                                            dragOffsetX = 0f
                                         }
-                                    } else if (isDragging && dragOffset > swipeDownThreshold) {
-                                        currentOnOpenFloatingWindow()
-                                    } else if (!isDragging || abs(dragOffset) < 10f) {
-                                        if (!isHoldRegistered) {
-                                            val currentNotification = notifications.getOrNull(safeIndex)
-                                            if (currentNotification != null) {
-                                                currentOnOpenNotification(currentNotification)
-                                            } else {
-                                                SmartIslandRepositories.notificationRepository(context).resetTimer()
+                                    } else {
+                                        scope.launch {
+                                            androidx.compose.animation.core.Animatable(dragOffsetX).animateTo(
+                                                targetValue = 0f,
+                                                animationSpec = spring(
+                                                    dampingRatio = Spring.DampingRatioMediumBouncy,
+                                                    stiffness = Spring.StiffnessMedium
+                                                )
+                                            ) {
+                                                dragOffsetX = value
                                             }
                                         }
                                     }
+                                } else if (isDragging) {
+                                    // VERTICAL SWIPE: COLLAPSE OR EXPAND (PRESERVES NOTIFICATION)
+                                    if (currentExpanded) {
+                                        if (dragOffsetY < swipeUpThreshold) {
+                                            // Swipe UP: COLLAPSE THE ISLAND! (Preserves notification)
+                                            triggerHapticVibration(context)
+                                            currentOnToggle()
+                                        } else if (dragOffsetY > swipeDownThreshold) {
+                                            currentOnOpenFloatingWindow()
+                                        }
+                                    } else {
+                                        if (dragOffsetY > swipeDownThreshold) {
+                                            // Swipe DOWN: EXPAND THE ISLAND!
+                                            triggerHapticVibration(context)
+                                            currentOnToggle()
+                                        } else if (dragOffsetY < swipeUpThreshold) {
+                                            // Swipe UP in collapsed mode: tuck bounce, PRESERVE notification!
+                                            triggerHapticVibration(context)
+                                        }
+                                    }
+                                    scope.launch {
+                                        androidx.compose.animation.core.Animatable(dragOffsetY).animateTo(
+                                            targetValue = 0f,
+                                            animationSpec = spring(
+                                                dampingRatio = Spring.DampingRatioMediumBouncy,
+                                                stiffness = Spring.StiffnessMedium
+                                            )
+                                        ) {
+                                            dragOffsetY = value
+                                        }
+                                    }
                                 } else {
-                                    if (!isDragging || abs(dragOffset) < 10f) {
+                                    // Tap gesture: cleanly toggles expand/collapse while preserving notifications
+                                    if (!isHoldRegistered) {
                                         currentOnToggle()
                                     }
                                 }
@@ -472,13 +666,25 @@ fun IslandOverlayView(
                                 holdJob.cancel()
                                 break
                             } else {
-                                val dragAmount = change.positionChange().y
-                                if (abs(dragAmount) > 0.5f) {
+                                val posChange = change.positionChange()
+                                dragAccumulatorX += posChange.x
+                                dragAccumulatorY += posChange.y
+
+                                if (!isDragging && (abs(dragAccumulatorX) > 6f * displayMetrics.density || abs(dragAccumulatorY) > 6f * displayMetrics.density)) {
                                     isDragging = true
-                                    if (currentExpanded) {
-                                        change.consume()
-                                        dragAccumulator += dragAmount
-                                        dragOffset = dragAccumulator.coerceIn(
+                                    isDraggingHorizontal = abs(dragAccumulatorX) > abs(dragAccumulatorY)
+                                    holdJob.cancel()
+                                }
+
+                                if (isDragging) {
+                                    change.consume()
+                                    if (isDraggingHorizontal) {
+                                        dragOffsetX = (dragOffsetX + posChange.x * 0.7f).coerceIn(
+                                            -displayMetrics.widthPixels.toFloat(),
+                                            displayMetrics.widthPixels.toFloat()
+                                        )
+                                    } else {
+                                        dragOffsetY = (dragOffsetY + posChange.y * 0.4f).coerceIn(
                                             -DRAG_MAX_OFFSET_DP * displayMetrics.density,
                                             DRAG_MAX_OFFSET_DP * displayMetrics.density
                                         )
@@ -488,16 +694,29 @@ fun IslandOverlayView(
                         }
 
                         holdJob.cancel()
-                        if (dragOffset != 0f) {
+                        if (dragOffsetY != 0f) {
                             scope.launch {
-                                androidx.compose.animation.core.Animatable(dragOffset).animateTo(
+                                androidx.compose.animation.core.Animatable(dragOffsetY).animateTo(
                                     targetValue = 0f,
                                     animationSpec = spring(
                                         dampingRatio = Spring.DampingRatioMediumBouncy,
                                         stiffness = Spring.StiffnessMedium
                                     )
                                 ) {
-                                    dragOffset = value
+                                    dragOffsetY = value
+                                }
+                            }
+                        }
+                        if (dragOffsetX != 0f) {
+                            scope.launch {
+                                androidx.compose.animation.core.Animatable(dragOffsetX).animateTo(
+                                    targetValue = 0f,
+                                    animationSpec = spring(
+                                        dampingRatio = Spring.DampingRatioMediumBouncy,
+                                        stiffness = Spring.StiffnessMedium
+                                    )
+                                ) {
+                                    dragOffsetX = value
                                 }
                             }
                         }
@@ -509,11 +728,13 @@ fun IslandOverlayView(
             if (collapsedAlpha > 0f) {
                 Box(
                     modifier = Modifier
-                        .width(settings.width.dp)
-                        .height(settings.height.dp)
+                        .width(effectiveCollapsedWidth)
+                        .height(effectiveCollapsedHeight)
                         .align(Alignment.TopCenter)
                         .graphicsLayer {
                             alpha = collapsedAlpha
+                            scaleX = collapsedScale
+                            scaleY = collapsedScale
                         }
                 ) {
                     IslandCollapsedContent(
@@ -550,9 +771,13 @@ fun IslandOverlayView(
                         // Each mode owns its natural height. The launcher already
                         // supplies its own loading height and must not impose that
                         // minimum on compact call or battery content.
-                        onHeightMeasured = { expandedHeight = it },
+                        onHeightMeasured = {
+                            expandedHeight = it
+                            onExpandedHeightChanged(it.value)
+                        },
                         settings = settings,
-                        onReplyStateChanged = onReplyStateChanged
+                        onReplyStateChanged = onReplyStateChanged,
+                        onDismissNotification = currentOnDismiss
                     )
                 }
             }
@@ -566,7 +791,7 @@ fun IslandOverlayView(
                     .absoluteOffset {
                         IntOffset(
                             secondaryOffset.roundToPx(),
-                            0
+                            yOffset.roundToPx()
                         )
                     }
                     .width(secondaryBubbleWidth)
@@ -577,18 +802,27 @@ fun IslandOverlayView(
                         scaleY = secondaryScale * switchScaleAnim.value
                     }
                     .then(
-                        if (settings.enableShadow) {
+                        if (settings.enableShadow && settings.shadowElevation > 0f) {
                             Modifier.shadow(
-                                elevation = 12.dp,
+                                elevation = (settings.shadowElevation * 0.75f).dp,
                                 shape = RoundedCornerShape(secondaryBubbleCorner),
                                 clip = false,
-                                ambientColor = Color.Black,
-                                spotColor = Color.Black
+                                ambientColor = Color(settings.shadowColor).copy(alpha = settings.shadowAlpha),
+                                spotColor = Color(settings.shadowColor).copy(alpha = settings.shadowAlpha)
                             )
                         } else Modifier
                     )
                     .clip(RoundedCornerShape(secondaryBubbleCorner))
-                    .background(Color.Black.copy(alpha = settings.opacity))
+                    .background(Color(settings.islandBackgroundColor).copy(alpha = settings.opacity))
+                    .then(
+                        if (settings.borderWidth > 0f && settings.borderAlpha > 0f) {
+                            Modifier.border(
+                                width = settings.borderWidth.dp,
+                                color = Color(settings.borderColor).copy(alpha = settings.borderAlpha),
+                                shape = RoundedCornerShape(secondaryBubbleCorner)
+                            )
+                        } else Modifier
+                    )
                     .clickable(
                         interactionSource = remember { MutableInteractionSource() },
                         indication = null
@@ -636,7 +870,7 @@ fun IslandOverlayView(
                     .absoluteOffset {
                         IntOffset(
                             (expandedCompactX - screenCenter + miniPillWidth / 2f).roundToPx(),
-                            0
+                            yOffset.roundToPx()
                         )
                     }
                     .width(miniPillWidth)
@@ -646,8 +880,28 @@ fun IslandOverlayView(
                         scaleX = tertiaryScale * switchScaleAnim.value
                         scaleY = tertiaryScale * switchScaleAnim.value
                     }
+                    .then(
+                        if (settings.enableShadow && settings.shadowElevation > 0f) {
+                            Modifier.shadow(
+                                elevation = (settings.shadowElevation * 0.75f).dp,
+                                shape = RoundedCornerShape(settings.cornerRadius.dp),
+                                clip = false,
+                                ambientColor = Color(settings.shadowColor).copy(alpha = settings.shadowAlpha),
+                                spotColor = Color(settings.shadowColor).copy(alpha = settings.shadowAlpha)
+                            )
+                        } else Modifier
+                    )
                     .clip(RoundedCornerShape(settings.cornerRadius.dp))
-                    .background(Color.Black.copy(alpha = settings.opacity))
+                    .background(Color(settings.islandBackgroundColor).copy(alpha = settings.opacity))
+                    .then(
+                        if (settings.borderWidth > 0f && settings.borderAlpha > 0f) {
+                            Modifier.border(
+                                width = settings.borderWidth.dp,
+                                color = Color(settings.borderColor).copy(alpha = settings.borderAlpha),
+                                shape = RoundedCornerShape(settings.cornerRadius.dp)
+                            )
+                        } else Modifier
+                    )
                     .clickable(
                         interactionSource = remember { MutableInteractionSource() },
                         indication = null
@@ -783,7 +1037,7 @@ private const val DRAG_MAX_OFFSET_DP = 100f
 private const val COMPACT_INDICATOR_GAP_DP = 8f
 private const val HOLD_GESTURE_THRESHOLD_MS = 300L
 
-private fun triggerHapticVibration(context: android.content.Context) {
+internal fun triggerHapticVibration(context: android.content.Context) {
     runCatching {
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
             val vm = context.getSystemService(android.content.Context.VIBRATOR_MANAGER_SERVICE) as? android.os.VibratorManager
@@ -830,3 +1084,22 @@ internal fun compactNotificationShapes(
     notificationCount == 2 -> listOf(CompactNotificationShape.MiniPill)
     else -> listOf(CompactNotificationShape.MiniPill, CompactNotificationShape.Circle)
 }
+
+private fun DrawScope.drawShapeOutline(
+    outline: Outline,
+    color: Color,
+    style: DrawStyle
+) {
+    when (outline) {
+        is Outline.Rectangle -> drawRect(color = color, topLeft = Offset(outline.rect.left, outline.rect.top), size = outline.rect.size, style = style)
+        is Outline.Rounded -> drawRoundRect(
+            color = color,
+            topLeft = Offset(outline.roundRect.left, outline.roundRect.top),
+            size = Size(outline.roundRect.width, outline.roundRect.height),
+            cornerRadius = CornerRadius(outline.roundRect.topLeftCornerRadius.x, outline.roundRect.topLeftCornerRadius.y),
+            style = style
+        )
+        is Outline.Generic -> drawPath(path = outline.path, color = color, style = style)
+    }
+}
+

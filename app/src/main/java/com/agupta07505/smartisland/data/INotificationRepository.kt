@@ -26,4 +26,5 @@ interface INotificationRepository {
     fun sendCommand(command: SmartIslandCommand)
     fun showDemo(mode: IslandMode)
     fun clearTestNotifications()
+    fun appendUserReply(key: String, replyText: String) {}
 }

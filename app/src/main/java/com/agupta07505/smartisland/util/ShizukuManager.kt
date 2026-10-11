@@ -69,6 +69,28 @@ object ShizukuManager {
         }
     }
 
+    private val SAFE_COMPONENT_LIST = Regex("^[A-Za-z0-9._/: ]*$")
+    private val SAFE_PACKAGE = Regex("^[A-Za-z][A-Za-z0-9_]*([.][A-Za-z][A-Za-z0-9_]*)+$")
+
+    /**
+     * Feature-preserving sanitizer: keeps the exact same Shizuku commands, but strips
+     * shell metacharacters from system-read Settings.Secure values before interpolating
+     * them into `sh -c`. Those values are writable by any holder of WRITE_SECURE_SETTINGS,
+     * so without this a poisoned `enabled_notification_listeners` containing `; rm …`
+     * would execute with shell privileges. Only valid ComponentName characters survive.
+     */
+    internal fun sanitizeComponentList(value: String): String {
+        val cleaned = value.replace(Regex("[;&|$\u0060!*?~<>^()#\\[\\]{}'\"\\\\\n\r]"), "")
+        return cleaned.split(":")
+            .map { it.trim() }
+            .filter { it.isNotBlank() && it.length <= 512 }
+            .filter { entry ->
+                entry.length <= 512 && (SAFE_COMPONENT_LIST.matches(entry) || entry.contains("/"))
+            }
+            .distinct()
+            .joinToString(":")
+    }
+
     private fun runShizukuCommands(commands: List<String>): Result<String> {
         if (!hasPermission()) {
             return Result.failure(IllegalStateException("Shizuku permission not granted or service binder offline."))
@@ -108,14 +130,19 @@ object ShizukuManager {
         val current = runCatching {
             Settings.Secure.getString(context.contentResolver, Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES)
         }.getOrNull().orEmpty()
-        return mergeColonSeparated(current, serviceComponent)
+        return sanitizeComponentList(mergeColonSeparated(current, serviceComponent))
     }
 
     internal fun getMergedNotificationListeners(context: Context, listenerComponent: String): String {
         val current = runCatching {
             Settings.Secure.getString(context.contentResolver, "enabled_notification_listeners")
         }.getOrNull().orEmpty()
-        return mergeColonSeparated(current, listenerComponent)
+        return sanitizeComponentList(mergeColonSeparated(current, listenerComponent))
+    }
+
+    private fun safePackage(context: Context): String? {
+        val pkg = context.packageName
+        return if (SAFE_PACKAGE.matches(pkg)) pkg else null
     }
 
     /**
@@ -127,7 +154,8 @@ object ShizukuManager {
      * - Battery Optimization whitelist
      */
     suspend fun autoGrantAllPermissions(context: Context): Result<String> = withContext(Dispatchers.IO) {
-        val pkg = context.packageName
+        val pkg = safePackage(context)
+            ?: return@withContext Result.failure(IllegalStateException("Invalid package name"))
         val accessibilityClass = "$pkg/${SmartIslandOverlayService::class.java.name}"
         val notificationClass = "$pkg/${SmartIslandNotificationListenerService::class.java.name}"
         val mergedAccessibilityServices = getMergedAccessibilityServices(context, accessibilityClass)
@@ -156,7 +184,8 @@ object ShizukuManager {
      * Grants OEM Autostart and disables background kill / app standby restrictions via Shizuku.
      */
     suspend fun grantOemAutostartAndKillProtection(context: Context): Result<String> = withContext(Dispatchers.IO) {
-        val pkg = context.packageName
+        val pkg = safePackage(context)
+            ?: return@withContext Result.failure(IllegalStateException("Invalid package name"))
         val commands = listOf(
             "appops set $pkg AUTO_START allow",
             "appops set $pkg RUN_IN_BACKGROUND allow",
@@ -171,7 +200,8 @@ object ShizukuManager {
      * Grants Notification Listener permission via Shizuku without overwriting other active listeners.
      */
     suspend fun grantNotificationListener(context: Context): Result<String> = withContext(Dispatchers.IO) {
-        val pkg = context.packageName
+        val pkg = safePackage(context)
+            ?: return@withContext Result.failure(IllegalStateException("Invalid package name"))
         val notificationClass = "$pkg/${SmartIslandNotificationListenerService::class.java.name}"
         val mergedNotificationListeners = getMergedNotificationListeners(context, notificationClass)
         val commands = listOf(
@@ -186,7 +216,8 @@ object ShizukuManager {
      * Grants Accessibility service permission via Shizuku without overwriting other active accessibility services.
      */
     suspend fun grantAccessibility(context: Context): Result<String> = withContext(Dispatchers.IO) {
-        val pkg = context.packageName
+        val pkg = safePackage(context)
+            ?: return@withContext Result.failure(IllegalStateException("Invalid package name"))
         val accessibilityClass = "$pkg/${SmartIslandOverlayService::class.java.name}"
         val mergedAccessibilityServices = getMergedAccessibilityServices(context, accessibilityClass)
         val commands = listOf(

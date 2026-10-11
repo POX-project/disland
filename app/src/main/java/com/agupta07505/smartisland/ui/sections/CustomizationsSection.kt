@@ -7,6 +7,7 @@
 
 package com.agupta07505.smartisland.ui.sections
 
+import android.widget.Toast
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -24,10 +25,12 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.AvTimer
 import androidx.compose.material.icons.rounded.BatteryChargingFull
 import androidx.compose.material.icons.rounded.BluetoothConnected
 import androidx.compose.material.icons.rounded.Call
+import androidx.compose.material.icons.rounded.CenterFocusStrong
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.Explore
 import androidx.compose.material.icons.rounded.FileDownload
@@ -37,6 +40,7 @@ import androidx.compose.material.icons.rounded.MusicNote
 import androidx.compose.material.icons.rounded.Navigation
 import androidx.compose.material.icons.rounded.Notifications
 import androidx.compose.material.icons.rounded.Refresh
+import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material.icons.rounded.Videocam
 import androidx.compose.material.icons.rounded.WifiTethering
 import androidx.compose.material3.AlertDialog
@@ -58,6 +62,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -92,7 +97,16 @@ fun CustomizationsSection(
     repository: SmartIslandSettingsRepository
 ) {
     val scope = rememberCoroutineScope()
+    val context = LocalContext.current
     var localOpacity by remember(settings.opacity) { mutableFloatStateOf(settings.opacity) }
+    var localShadowElevation by remember(settings.shadowElevation) { mutableFloatStateOf(settings.shadowElevation) }
+    var localShadowAlpha by remember(settings.shadowAlpha) { mutableFloatStateOf(settings.shadowAlpha) }
+    var localBorderWidth by remember(settings.borderWidth) { mutableFloatStateOf(settings.borderWidth) }
+    var localBorderAlpha by remember(settings.borderAlpha) { mutableFloatStateOf(settings.borderAlpha) }
+    var localInnerShadowRadius by remember(settings.innerShadowRadius) { mutableFloatStateOf(settings.innerShadowRadius) }
+    var localInnerShadowAlpha by remember(settings.innerShadowAlpha) { mutableFloatStateOf(settings.innerShadowAlpha) }
+    var localBackgroundBlur by remember(settings.backgroundBlur) { mutableFloatStateOf(settings.backgroundBlur) }
+
     var showDialog by remember { mutableStateOf(false) }
     var currentColorTarget by remember { mutableStateOf("") }
     var colorPickerTitle by remember { mutableStateOf("") }
@@ -120,6 +134,10 @@ fun CustomizationsSection(
                         "screen_recording" -> repository.setScreenRecordingColor(color)
                         "timer" -> repository.setTimerColor(color)
                         "stopwatch" -> repository.setStopwatchColor(color)
+                        "shadow_color" -> repository.setShadowColor(color)
+                        "border_color" -> repository.setBorderColor(color)
+                        "inner_shadow_color" -> repository.setInnerShadowColor(color)
+                        "island_background_color" -> repository.setIslandBackgroundColor(color)
                     }
                 }
             }
@@ -130,6 +148,342 @@ fun CustomizationsSection(
         modifier = Modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
+        // Card 0: Visual Styling, Blur, Shadows & Specular Border
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(20.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)),
+            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+        ) {
+            Column(modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = stringResource(R.string.title_glassmorphism_shadows),
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Text(
+                            text = stringResource(R.string.desc_glassmorphism_shadows),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
+
+                // Theme Presets Row
+                Text(
+                    text = stringResource(R.string.theme_preset_title),
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    listOf(
+                        "OLED_BLACK" to stringResource(R.string.theme_oled_black),
+                        "APPLE_GLASS" to stringResource(R.string.theme_apple_glass),
+                        "FROSTED_ACRYLIC" to stringResource(R.string.theme_frosted_acrylic),
+                        "CYBER_GLOW" to stringResource(R.string.theme_cyber_glow),
+                        "NEUMORPHIC" to stringResource(R.string.theme_neumorphic)
+                    ).forEach { (presetKey, label) ->
+                        val isSelected = when (presetKey) {
+                            "OLED_BLACK" -> localBorderWidth == 0f && localBackgroundBlur == 0f && localOpacity >= 0.98f && settings.islandBackgroundColor == 0xFF000000L
+                            "APPLE_GLASS" -> abs(localBackgroundBlur - 14f) < 2f && abs(localOpacity - 0.88f) < 0.05f
+                            "FROSTED_ACRYLIC" -> abs(localBackgroundBlur - 22f) < 2f && abs(localOpacity - 0.72f) < 0.05f
+                            "CYBER_GLOW" -> abs(localBackgroundBlur - 8f) < 2f && settings.shadowColor == 0xFF06B6D4L
+                            "NEUMORPHIC" -> localBackgroundBlur == 0f && abs(localInnerShadowRadius - 10f) < 2f && settings.innerShadowColor == 0xFF000000L
+                            else -> false
+                        }
+                        Surface(
+                            shape = RoundedCornerShape(10.dp),
+                            color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
+                            border = BorderStroke(1.dp, if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)),
+                            modifier = Modifier
+                                .weight(1f)
+                                .clickable {
+                                    scope.launch {
+                                        repository.setVisualThemePreset(presetKey)
+                                        when (presetKey) {
+                                            "OLED_BLACK" -> {
+                                                localOpacity = 1f
+                                                localShadowElevation = 18f
+                                                localShadowAlpha = 0.9f
+                                                localBorderWidth = 0f
+                                                localBorderAlpha = 0.20f
+                                                localInnerShadowRadius = 0f
+                                                localInnerShadowAlpha = 0f
+                                                localBackgroundBlur = 0f
+                                            }
+                                            "APPLE_GLASS" -> {
+                                                localOpacity = 0.88f
+                                                localShadowElevation = 16f
+                                                localShadowAlpha = 0.75f
+                                                localBorderWidth = 0.8f
+                                                localBorderAlpha = 0.22f
+                                                localInnerShadowRadius = 4f
+                                                localInnerShadowAlpha = 0.15f
+                                                localBackgroundBlur = 14f
+                                            }
+                                            "FROSTED_ACRYLIC" -> {
+                                                localOpacity = 0.72f
+                                                localShadowElevation = 10f
+                                                localShadowAlpha = 0.6f
+                                                localBorderWidth = 1.2f
+                                                localBorderAlpha = 0.35f
+                                                localInnerShadowRadius = 8f
+                                                localInnerShadowAlpha = 0.25f
+                                                localBackgroundBlur = 22f
+                                            }
+                                            "CYBER_GLOW" -> {
+                                                localOpacity = 0.92f
+                                                localShadowElevation = 24f
+                                                localShadowAlpha = 0.85f
+                                                localBorderWidth = 1.4f
+                                                localBorderAlpha = 0.65f
+                                                localInnerShadowRadius = 6f
+                                                localInnerShadowAlpha = 0.30f
+                                                localBackgroundBlur = 8f
+                                            }
+                                            "NEUMORPHIC" -> {
+                                                localOpacity = 0.95f
+                                                localShadowElevation = 18f
+                                                localShadowAlpha = 0.7f
+                                                localBorderWidth = 1.0f
+                                                localBorderAlpha = 0.15f
+                                                localInnerShadowRadius = 10f
+                                                localInnerShadowAlpha = 0.35f
+                                                localBackgroundBlur = 0f
+                                            }
+                                        }
+                                        Toast.makeText(context, context.getString(R.string.toast_theme_applied, label), Toast.LENGTH_SHORT).show()
+                                    }
+                                }
+                        ) {
+                            Text(
+                                text = label,
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.SemiBold,
+                                color = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface,
+                                modifier = Modifier
+                                    .padding(vertical = 8.dp, horizontal = 2.dp)
+                                    .fillMaxWidth(),
+                                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                                fontSize = 9.sp,
+                                maxLines = 1
+                            )
+                        }
+                    }
+                }
+
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
+
+                // Section A: Outer Floating Shadows
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = stringResource(R.string.toggle_drop_shadow_title),
+                            style = MaterialTheme.typography.bodyLarge,
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Text(
+                            text = stringResource(R.string.slider_shadow_elevation_desc),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    Switch(
+                        checked = settings.enableShadow,
+                        onCheckedChange = { checked ->
+                            scope.launch { repository.setEnableShadow(checked) }
+                        }
+                    )
+                }
+
+                if (settings.enableShadow) {
+                    SliderSettingItem(
+                        label = stringResource(R.string.slider_shadow_elevation),
+                        value = localShadowElevation,
+                        range = SmartIslandSettings.MIN_SHADOW_ELEVATION..SmartIslandSettings.MAX_SHADOW_ELEVATION,
+                        suffix = "dp",
+                        step = 1f,
+                        onValueChange = { localShadowElevation = it },
+                        onValueChangeFinished = { scope.launch { repository.setShadowElevation(localShadowElevation) } }
+                    )
+
+                    SliderSettingItem(
+                        label = stringResource(R.string.slider_shadow_alpha),
+                        value = (localShadowAlpha * 100f),
+                        range = (SmartIslandSettings.MIN_SHADOW_ALPHA * 100f)..(SmartIslandSettings.MAX_SHADOW_ALPHA * 100f),
+                        suffix = "%",
+                        step = 5f,
+                        onValueChange = { localShadowAlpha = (it / 100f).coerceIn(SmartIslandSettings.MIN_SHADOW_ALPHA, SmartIslandSettings.MAX_SHADOW_ALPHA) },
+                        onValueChangeFinished = { scope.launch { repository.setShadowAlpha(localShadowAlpha) } }
+                    )
+
+                    FeatureColorRow(
+                        title = stringResource(R.string.color_shadow_tint),
+                        subtitle = stringResource(R.string.slider_shadow_alpha_desc),
+                        icon = Icons.Rounded.CenterFocusStrong,
+                        selectedColor = settings.shadowColor,
+                        onColorSelected = { scope.launch { repository.setShadowColor(it) } },
+                        onCustomClicked = {
+                            initialColor = settings.shadowColor
+                            currentColorTarget = "shadow_color"
+                            colorPickerTitle = ""
+                            showDialog = true
+                        }
+                    )
+                }
+
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
+
+                // Section B: Specular Hairline Rim / Inner Border
+                SliderSettingItem(
+                    label = stringResource(R.string.slider_border_width),
+                    value = localBorderWidth,
+                    range = SmartIslandSettings.MIN_BORDER_WIDTH..SmartIslandSettings.MAX_BORDER_WIDTH,
+                    suffix = "dp",
+                    step = 0.2f,
+                    onValueChange = { localBorderWidth = it },
+                    onValueChangeFinished = { scope.launch { repository.setBorderWidth(localBorderWidth) } }
+                )
+
+                if (localBorderWidth > 0f) {
+                    SliderSettingItem(
+                        label = stringResource(R.string.slider_border_alpha),
+                        value = (localBorderAlpha * 100f),
+                        range = (SmartIslandSettings.MIN_BORDER_ALPHA * 100f)..(SmartIslandSettings.MAX_BORDER_ALPHA * 100f),
+                        suffix = "%",
+                        step = 5f,
+                        onValueChange = { localBorderAlpha = (it / 100f).coerceIn(SmartIslandSettings.MIN_BORDER_ALPHA, SmartIslandSettings.MAX_BORDER_ALPHA) },
+                        onValueChangeFinished = { scope.launch { repository.setBorderAlpha(localBorderAlpha) } }
+                    )
+
+                    FeatureColorRow(
+                        title = stringResource(R.string.color_border_tint),
+                        subtitle = stringResource(R.string.slider_border_alpha_desc),
+                        icon = Icons.Rounded.AutoAwesome,
+                        selectedColor = settings.borderColor,
+                        onColorSelected = { scope.launch { repository.setBorderColor(it) } },
+                        onCustomClicked = {
+                            initialColor = settings.borderColor
+                            currentColorTarget = "border_color"
+                            colorPickerTitle = ""
+                            showDialog = true
+                        }
+                    )
+                }
+
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
+
+                // Section C: Inset Inner Shadow / Inner Glow
+                SliderSettingItem(
+                    label = stringResource(R.string.slider_inner_shadow_radius),
+                    value = localInnerShadowRadius,
+                    range = SmartIslandSettings.MIN_INNER_SHADOW_RADIUS..SmartIslandSettings.MAX_INNER_SHADOW_RADIUS,
+                    suffix = "dp",
+                    step = 1f,
+                    onValueChange = { localInnerShadowRadius = it },
+                    onValueChangeFinished = { scope.launch { repository.setInnerShadowRadius(localInnerShadowRadius) } }
+                )
+
+                if (localInnerShadowRadius > 0f) {
+                    SliderSettingItem(
+                        label = stringResource(R.string.slider_inner_shadow_alpha),
+                        value = (localInnerShadowAlpha * 100f),
+                        range = 5f..100f,
+                        suffix = "%",
+                        step = 5f,
+                        onValueChange = { localInnerShadowAlpha = (it / 100f).coerceIn(0.05f, 1f) },
+                        onValueChangeFinished = { scope.launch { repository.setInnerShadowAlpha(localInnerShadowAlpha) } }
+                    )
+
+                    FeatureColorRow(
+                        title = stringResource(R.string.color_inner_shadow_tint),
+                        subtitle = stringResource(R.string.slider_inner_shadow_radius_desc),
+                        icon = Icons.Rounded.Tune,
+                        selectedColor = settings.innerShadowColor,
+                        onColorSelected = { scope.launch { repository.setInnerShadowColor(it) } },
+                        onCustomClicked = {
+                            initialColor = settings.innerShadowColor
+                            currentColorTarget = "inner_shadow_color"
+                            colorPickerTitle = ""
+                            showDialog = true
+                        }
+                    )
+                }
+
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
+
+                // Section D: Frosted Glass & Blur
+                SliderSettingItem(
+                    label = stringResource(R.string.slider_background_blur),
+                    value = localBackgroundBlur,
+                    range = SmartIslandSettings.MIN_BACKGROUND_BLUR..SmartIslandSettings.MAX_BACKGROUND_BLUR,
+                    suffix = "dp",
+                    step = 1f,
+                    onValueChange = { localBackgroundBlur = it },
+                    onValueChangeFinished = { scope.launch { repository.setBackgroundBlur(localBackgroundBlur) } }
+                )
+
+                FeatureColorRow(
+                    title = stringResource(R.string.color_island_background),
+                    subtitle = stringResource(R.string.opacity_card_desc),
+                    icon = Icons.Rounded.Notifications,
+                    selectedColor = settings.islandBackgroundColor,
+                    onColorSelected = { scope.launch { repository.setIslandBackgroundColor(it) } },
+                    onCustomClicked = {
+                        initialColor = settings.islandBackgroundColor
+                        currentColorTarget = "island_background_color"
+                        colorPickerTitle = ""
+                        showDialog = true
+                    }
+                )
+
+                Spacer(Modifier.height(8.dp))
+
+                OutlinedButton(
+                    onClick = {
+                        scope.launch {
+                            repository.resetVisualStyles()
+                            localShadowElevation = SmartIslandSettings.Default.shadowElevation
+                            localShadowAlpha = SmartIslandSettings.Default.shadowAlpha
+                            localBorderWidth = SmartIslandSettings.Default.borderWidth
+                            localBorderAlpha = SmartIslandSettings.Default.borderAlpha
+                            localInnerShadowRadius = SmartIslandSettings.Default.innerShadowRadius
+                            localInnerShadowAlpha = SmartIslandSettings.Default.innerShadowAlpha
+                            localBackgroundBlur = SmartIslandSettings.Default.backgroundBlur
+                            localOpacity = SmartIslandSettings.Default.opacity
+                        }
+                        Toast.makeText(context, context.getString(R.string.toast_reset_visual_styles), Toast.LENGTH_SHORT).show()
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Icon(Icons.Rounded.Refresh, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text(stringResource(R.string.btn_reset_visual_styles), fontWeight = FontWeight.SemiBold)
+                }
+            }
+        }
+
         // Card 1: Island Opacity & Transparency
         Card(
             modifier = Modifier.fillMaxWidth(),
@@ -269,6 +623,37 @@ fun CustomizationsSection(
                         checked = settings.enableMusicArtworkBackground,
                         onCheckedChange = { checked ->
                             scope.launch { repository.setEnableMusicArtworkBackground(checked) }
+                        }
+                    )
+                }
+
+                HorizontalDivider(
+                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f),
+                    modifier = Modifier.padding(vertical = 12.dp)
+                )
+
+                // Option: Show Lyrics Below Song Controls
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(Modifier.weight(1f)) {
+                        Text(
+                            text = "Show Lyrics Below Controls",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                        Text(
+                            text = "Extend expanded Dynamic Island to display real-time lyrics under music player controls",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    Spacer(Modifier.width(12.dp))
+                    Switch(
+                        checked = settings.showLyricsUnderControls,
+                        onCheckedChange = { checked ->
+                            scope.launch { repository.setShowLyricsUnderControls(checked) }
                         }
                     )
                 }

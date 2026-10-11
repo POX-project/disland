@@ -46,9 +46,19 @@ object SystemServiceRecovery {
         ) return
 
         runCatchingLogged(TAG, "Notification-listener rebind failed") {
-            NotificationListenerService.requestRebind(
-                ComponentName(context, SmartIslandNotificationListenerService::class.java)
+            val component = ComponentName(context, SmartIslandNotificationListenerService::class.java)
+            val pm = context.packageManager
+            pm.setComponentEnabledSetting(
+                component,
+                PackageManager.COMPONENT_ENABLED_STATE_DISABLED,
+                PackageManager.DONT_KILL_APP
             )
+            pm.setComponentEnabledSetting(
+                component,
+                PackageManager.COMPONENT_ENABLED_STATE_ENABLED,
+                PackageManager.DONT_KILL_APP
+            )
+            NotificationListenerService.requestRebind(component)
         }
     }
 

@@ -35,16 +35,15 @@ class IslandModeMappingTest {
     }
 
     private fun createBaseExtras(): Bundle {
-        val extras = mockk<Bundle>()
-        every { extras.getString(Notification.EXTRA_TEMPLATE) } returns null
+        val extras = mockk<Bundle>(relaxed = true)
+        every { extras.getString(any()) } returns null
+        every { extras.getCharSequence(any()) } returns null
+        every { extras.getParcelableArray(any()) } returns null
+        every { extras.getCharSequenceArray(any()) } returns null
         every { extras.containsKey(Notification.EXTRA_MEDIA_SESSION) } returns false
         every { extras.getInt(Notification.EXTRA_PROGRESS_MAX, 0) } returns 0
         every { extras.getInt(Notification.EXTRA_PROGRESS, 0) } returns 0
         every { extras.getBoolean(Notification.EXTRA_PROGRESS_INDETERMINATE, false) } returns false
-        every { extras.getCharSequence(Notification.EXTRA_TITLE) } returns null
-        every { extras.getCharSequence(Notification.EXTRA_TEXT) } returns null
-        every { extras.getCharSequence(Notification.EXTRA_BIG_TEXT) } returns null
-        every { extras.getCharSequence(Notification.EXTRA_SUB_TEXT) } returns null
         return extras
     }
 
@@ -303,6 +302,28 @@ class IslandModeMappingTest {
     }
 
     @Test
+    fun testOutgoingCallMapsToIncomingCallMode() {
+        val notification = mockk<Notification>()
+        notification.category = Notification.CATEGORY_CALL
+        notification.flags = Notification.FLAG_ONGOING_EVENT
+
+        val hangUpAction = mockk<Notification.Action>()
+        hangUpAction.title = "Hang up"
+        notification.actions = arrayOf(hangUpAction)
+
+        val sbn = mockk<StatusBarNotification>()
+        val extras = createBaseExtras()
+        notification.extras = extras
+        every { sbn.packageName } returns "com.google.android.dialer"
+        every { sbn.notification } returns notification
+
+        every { extras.getCharSequence(Notification.EXTRA_TITLE) } returns "Bob"
+        every { extras.getCharSequence(Notification.EXTRA_TEXT) } returns "Calling..."
+
+        assertEquals(IslandMode.IncomingCall, notification.toIslandMode(sbn))
+    }
+
+    @Test
     fun testTimerNotificationMapsToTimer() {
         val notification = mockk<Notification>()
         notification.flags = Notification.FLAG_ONGOING_EVENT
@@ -350,5 +371,130 @@ class IslandModeMappingTest {
         every { extras.getCharSequence(Notification.EXTRA_TEXT) } returns "00:14.28"
 
         assertEquals(IslandMode.Stopwatch, notification.toIslandMode(sbn))
+    }
+
+    @Test
+    fun testInstagramReelNotificationMapsToNotificationMode() {
+        val notification = mockk<Notification>()
+        notification.flags = 0
+        notification.actions = null
+        notification.category = Notification.CATEGORY_SOCIAL
+        // Server timestamp 2s in the future
+        notification.`when` = System.currentTimeMillis() + 2000L
+
+        val sbn = mockk<StatusBarNotification>()
+        val extras = createBaseExtras()
+        notification.extras = extras
+        every { sbn.packageName } returns "com.instagram.android"
+        every { sbn.notification } returns notification
+
+        every { extras.getCharSequence(Notification.EXTRA_TITLE) } returns "instagram_user"
+        every { extras.getCharSequence(Notification.EXTRA_TEXT) } returns "sent a reel by video_creator • 0:15"
+
+        assertEquals(IslandMode.Notification, notification.toIslandMode(sbn))
+    }
+
+    @Test
+    fun testWhatsAppMessageWithHotspotKeywordDoesNotMapToHotspot() {
+        val notification = mockk<Notification>()
+        notification.flags = 0
+        notification.actions = null
+        notification.category = Notification.CATEGORY_MESSAGE
+        notification.`when` = System.currentTimeMillis()
+
+        val sbn = mockk<StatusBarNotification>()
+        val extras = createBaseExtras()
+        notification.extras = extras
+        every { sbn.packageName } returns "com.whatsapp"
+        every { sbn.notification } returns notification
+
+        every { extras.getCharSequence(Notification.EXTRA_TITLE) } returns "Friend"
+        every { extras.getCharSequence(Notification.EXTRA_TEXT) } returns "Hey, can you turn on your hotspot?"
+
+        assertEquals(IslandMode.Notification, notification.toIslandMode(sbn))
+    }
+
+    @Test
+    fun testGooglePlayStoreDownloadingAppMapsToDownloadUpload() {
+        val notification = mockk<Notification>()
+        notification.flags = Notification.FLAG_ONGOING_EVENT
+        notification.category = null
+        notification.actions = null
+
+        val sbn = mockk<StatusBarNotification>()
+        val extras = createBaseExtras()
+        every { extras.getInt(Notification.EXTRA_PROGRESS_MAX, 0) } returns 120
+        every { extras.getInt(Notification.EXTRA_PROGRESS, 0) } returns 45
+        every { extras.getCharSequence(Notification.EXTRA_TITLE) } returns "Subway Surfers"
+        every { extras.getCharSequence(Notification.EXTRA_TEXT) } returns "45 MB / 120 MB (2 mins remaining)"
+        notification.extras = extras
+
+        every { sbn.packageName } returns "com.android.vending"
+        every { sbn.notification } returns notification
+
+        assertEquals(IslandMode.DownloadUpload, notification.toIslandMode(sbn))
+    }
+
+    @Test
+    fun testAndroidDownloadManagerMapsToDownloadUpload() {
+        val notification = mockk<Notification>()
+        notification.flags = Notification.FLAG_ONGOING_EVENT
+        notification.category = null
+        notification.actions = null
+
+        val sbn = mockk<StatusBarNotification>()
+        val extras = createBaseExtras()
+        every { extras.getInt(Notification.EXTRA_PROGRESS_MAX, 0) } returns 58
+        every { extras.getInt(Notification.EXTRA_PROGRESS, 0) } returns 12
+        every { extras.getCharSequence(Notification.EXTRA_TITLE) } returns "ubuntu-24.04.iso"
+        every { extras.getCharSequence(Notification.EXTRA_TEXT) } returns "1.2 GB / 5.8 GB - 4 mins left"
+        notification.extras = extras
+
+        every { sbn.packageName } returns "com.android.providers.downloads"
+        every { sbn.notification } returns notification
+
+        assertEquals(IslandMode.DownloadUpload, notification.toIslandMode(sbn))
+    }
+
+    @Test
+    fun testBrowserDownloadWithSpeedAndEtaMapsToDownloadUpload() {
+        val notification = mockk<Notification>()
+        notification.flags = Notification.FLAG_ONGOING_EVENT
+        notification.category = null
+        notification.actions = null
+
+        val sbn = mockk<StatusBarNotification>()
+        val extras = createBaseExtras()
+        every { extras.getInt(Notification.EXTRA_PROGRESS_MAX, 0) } returns 100
+        every { extras.getInt(Notification.EXTRA_PROGRESS, 0) } returns 20
+        every { extras.getCharSequence(Notification.EXTRA_TITLE) } returns "archive.zip"
+        every { extras.getCharSequence(Notification.EXTRA_TEXT) } returns "3.2 MB/s • 45 seconds remaining"
+        notification.extras = extras
+
+        every { sbn.packageName } returns "com.android.chrome"
+        every { sbn.notification } returns notification
+
+        assertEquals(IslandMode.DownloadUpload, notification.toIslandMode(sbn))
+    }
+
+    @Test
+    fun testMessengerFileUploadMapsToDownloadUpload() {
+        val notification = mockk<Notification>()
+        notification.flags = Notification.FLAG_ONGOING_EVENT
+        notification.category = Notification.CATEGORY_PROGRESS
+        notification.actions = null
+
+        val sbn = mockk<StatusBarNotification>()
+        val extras = createBaseExtras()
+        every { extras.getInt(Notification.EXTRA_PROGRESS_MAX, 0) } returns 80
+        every { extras.getInt(Notification.EXTRA_PROGRESS, 0) } returns 25
+        every { extras.getCharSequence(Notification.EXTRA_TITLE) } returns "Uploading file"
+        every { extras.getCharSequence(Notification.EXTRA_TEXT) } returns "25 MB / 80 MB • 1 min remaining"
+        notification.extras = extras
+
+        every { sbn.packageName } returns "org.telegram.messenger"
+        every { sbn.notification } returns notification
+
+        assertEquals(IslandMode.DownloadUpload, notification.toIslandMode(sbn))
     }
 }

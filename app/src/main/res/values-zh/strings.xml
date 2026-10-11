@@ -376,4 +376,5 @@
     <string name="expanded_action_reply">回复</string>
     <string name="expanded_action_mark_read">标为已读</string>
     <string name="expanded_action_dismiss">忽略</string>
+    <string name="expanded_action_open">打开</string>
 </resources>

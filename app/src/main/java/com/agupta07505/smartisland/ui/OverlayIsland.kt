@@ -36,21 +36,25 @@ fun OverlayIsland(
     val selectedIndex by viewModel.selectedIndex.collectAsState()
     val isLocked by viewModel.isLocked.collectAsState()
     val isInputActive by viewModel.isInputActive.collectAsState()
+    val isFullWidthState by viewModel.isFullWidth.collectAsState()
     val context = LocalContext.current
 
     val isContentRedacted = isLocked && settings.lockScreenPrivacy == "AppIconOnly"
     val processedNotifications = remember(notifications, isContentRedacted) {
         if (isContentRedacted) {
             notifications.map { notif ->
-                if (notif.mode == com.agupta07505.smartisland.model.IslandMode.Notification) {
-                    notif.copy(
-                        title = notif.appName,
-                        text = "Contents hidden",
-                        actionIntents = emptyList()
-                    )
-                } else {
-                    notif
-                }
+                // AppIconOnly: hide text content for ALL modes (music titles, nav ETA,
+                // timer labels all leak PII on lockscreen). Keep app identity + icon so
+                // the pill remains useful. FullContent path below is untouched.
+                notif.copy(
+                    title = notif.appName,
+                    text = "Contents hidden",
+                    bigText = "Contents hidden",
+                    messages = emptyList(),
+                    picture = null,
+                    largeIcon = null,
+                    actionIntents = emptyList()
+                )
             }
         } else {
             notifications
@@ -95,7 +99,8 @@ fun OverlayIsland(
         statusBarHeight = statusBarHeight,
         isInputActive = isInputActive,
         onReplyStateChanged = { viewModel.setInputActive(it) },
-        isFullWidth = isFullWidth,
+        isFullWidth = isFullWidthState,
+        onExpandedHeightChanged = { viewModel.updateExpandedHeight(it) },
         modifier = modifier
     )
 }

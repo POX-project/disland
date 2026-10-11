@@ -163,6 +163,30 @@
     <string name="slider_island_opacity">Island Opacity &amp; Transparency</string>
     <string name="toggle_drop_shadow_title">Island Drop Shadow</string>
     <string name="toggle_drop_shadow_desc">Add a soft ambient drop shadow for a floating depth effect</string>
+    <string name="preset_pinch_notch">Pinch Notch (Redmi Note 8 Pro)</string>
+    <string name="preset_pinch_notch_desc">Teardrop waterdrop notch flush with top bezel</string>
+    <string name="toast_applied_pinch_preset">Applied Redmi Note 8 Pro Pinch Notch preset</string>
+    <string name="toggle_pinch_notch_title">Pinch Notch Shape (Redmi Note 8 Pro / Waterdrop)</string>
+    <string name="toggle_pinch_notch_desc">Pinches the island into the top bezel to seamlessly fit waterdrop notches like Redmi Note 8 Pro</string>
+    <string name="slider_animation_delay">Animation Delay</string>
+    <string name="slider_animation_delay_desc">Content reveal and transition delay for smooth notifications and expansion animations</string>
+    <string name="title_animation_settings">Animation &amp; Physics</string>
+    <string name="desc_animation_settings">Customize dynamic island transition physics, bounciness, and delay</string>
+    <string name="slider_spring_stiffness">Spring Stiffness (Speed)</string>
+    <string name="slider_spring_damping">Spring Damping (Bounciness)</string>
+    <string name="anim_preset_fast">Fast &amp; Bouncy</string>
+    <string name="anim_preset_balanced">Balanced</string>
+    <string name="anim_preset_apple">Apple Fluid</string>
+    <string name="anim_preset_xiaomi">Xiaomi HyperOS</string>
+    <string name="anim_preset_gentle">Gentle &amp; Smooth</string>
+    <string name="title_paddings_tuning">Content Spacing &amp; Paddings</string>
+    <string name="desc_paddings_tuning">Adjust inner icon margins to keep content completely clear of the camera cutout</string>
+    <string name="slider_content_horizontal_padding">Content Horizontal Padding</string>
+    <string name="slider_content_horizontal_padding_desc">Adjust spacing of left and right slots from the island wings</string>
+    <string name="slider_content_vertical_padding">Content Vertical Padding</string>
+    <string name="slider_content_vertical_padding_desc">Fine-tune vertical positioning of icons and visualizers inside the island</string>
+    <string name="slider_camera_clearance">Camera Cutout Clearance</string>
+    <string name="slider_camera_clearance_desc">Safe center gap around camera cutout to prevent notch overlap</string>
     <string name="btn_reset_position">Reset to Factory Position</string>
     <string name="toast_applied_center_preset">Applied Center Hole preset</string>
     <string name="toast_applied_wide_preset">Applied Wide Island preset</string>
@@ -170,6 +194,36 @@
     <string name="toast_applied_right_preset">Applied Right Corner preset (+%1$d dp)</string>
     <string name="toast_applied_compact_preset">Applied Compact Pill preset</string>
     <string name="toast_reset_position">Position reset to factory defaults</string>
+
+    <!-- Visual Glassmorphism, Shadows & Specular Border -->
+    <string name="title_glassmorphism_shadows">Visual Styling, Blur &amp; Shadows</string>
+    <string name="desc_glassmorphism_shadows">Full control over specular border highlights, drop shadows, inner glow and frosted glass blur</string>
+    <string name="theme_preset_title">Aesthetic Themes</string>
+    <string name="theme_oled_black">OLED Black</string>
+    <string name="theme_apple_glass">Apple Glass</string>
+    <string name="theme_frosted_acrylic">Frosted Glass</string>
+    <string name="theme_cyber_glow">Cyber Glow</string>
+    <string name="theme_neumorphic">Neumorphic</string>
+    <string name="slider_shadow_elevation">Shadow Elevation / Depth</string>
+    <string name="slider_shadow_elevation_desc">Outer drop shadow elevation and diffuse spread</string>
+    <string name="slider_shadow_alpha">Shadow Darkness &amp; Opacity</string>
+    <string name="slider_shadow_alpha_desc">Intensity of the ambient floating shadow</string>
+    <string name="color_shadow_tint">Shadow Ambient Tint Color</string>
+    <string name="slider_border_width">Inner Specular Border / Rim Width</string>
+    <string name="slider_border_width_desc">Crisp glass specular hairline highlight around island curved rim</string>
+    <string name="slider_border_alpha">Specular Rim Opacity</string>
+    <string name="slider_border_alpha_desc">Transparency of the hairline rim highlight</string>
+    <string name="color_border_tint">Specular Rim Color</string>
+    <string name="slider_inner_shadow_radius">Inner Shadow / Glow Radius</string>
+    <string name="slider_inner_shadow_radius_desc">Depth of the soft inset shadow / inner rim lighting</string>
+    <string name="slider_inner_shadow_alpha">Inner Shadow Opacity</string>
+    <string name="color_inner_shadow_tint">Inner Shadow Color</string>
+    <string name="slider_background_blur">Frosted Glass Background Blur</string>
+    <string name="slider_background_blur_desc">Real-time backdrop blur behind the floating island</string>
+    <string name="color_island_background">Island Base Background Color</string>
+    <string name="btn_reset_visual_styles">Reset Visual Styles to Defaults</string>
+    <string name="toast_reset_visual_styles">Visual styles reset to defaults</string>
+    <string name="toast_theme_applied">Applied %1$s theme</string>
 
     <!-- Customizations / Studio -->
     <string name="opacity_card_title">Island Opacity &amp; Transparency</string>
@@ -376,4 +430,69 @@
     <string name="expanded_action_reply">Reply</string>
     <string name="expanded_action_mark_read">Mark as read</string>
     <string name="expanded_action_dismiss">Dismiss</string>
+    <string name="expanded_action_open">Open</string>
+
+    <!-- Detailed (Expanded) Mode Spacing & Split Island -->
+    <string name="title_expanded_mode_tuning">Detailed (Expanded) Mode Spacing &amp; Paddings</string>
+    <string name="desc_expanded_mode_tuning">Customize screen margins and internal content spacing when the island is expanded</string>
+    <string name="slider_expanded_screen_margin">Screen Side Margin</string>
+    <string name="slider_expanded_screen_margin_desc">Spacing between the expanded island card and the left/right screen edges</string>
+    <string name="slider_expanded_top_margin">Screen Top Margin</string>
+    <string name="slider_expanded_top_margin_desc">Distance from the top bezel to the top of the expanded island</string>
+    <string name="slider_expanded_content_horizontal_padding">Expanded Inner Horizontal Padding</string>
+    <string name="slider_expanded_content_horizontal_padding_desc">Internal left and right margin for widgets inside the expanded card</string>
+    <string name="slider_expanded_content_vertical_padding">Expanded Inner Vertical Padding</string>
+    <string name="slider_expanded_content_vertical_padding_desc">Internal top and bottom padding for content inside the expanded card</string>
+    <string name="toggle_split_island_title">Split Island Multi-Tasking</string>
+    <string name="toggle_split_island_desc">Split the island into a main pill and a secondary circular bubble when multiple alerts are active</string>
+
+    <!-- Template & Custom Setup -->
+    <string name="template_section_title">Custom Configuration Template</string>
+    <string name="template_section_desc">Save your current perfect configuration as a template and restore it with one tap anytime</string>
+    <string name="btn_save_template">Save Current as Template</string>
+    <string name="btn_apply_template">Apply Saved Template</string>
+    <string name="toast_template_saved">Saved current configuration as template!</string>
+    <string name="toast_template_applied">Applied your custom template!</string>
+    <string name="toast_no_template_saved">No template saved yet. Tap Save Current as Template first.</string>
+    <string name="preset_custom_template">My Template</string>
+    <string name="preset_custom_template_desc">Your saved perfect configuration</string>
+
+    <!-- Synced Lyrics -->
+    <string name="lyrics_title">Live Synced Lyrics</string>
+    <string name="lyrics_searching">Loading synced lyrics…</string>
+    <string name="lyrics_not_found">No synced lyrics found for this track</string>
+    <string name="lyrics_tap_to_seek">Tap any line to jump</string>
+
+    <!-- Profiles Manager -->
+    <string name="card_profiles_title">Island Profiles</string>
+    <string name="card_profiles_desc">Switch between presets, save setups, and build custom configurations</string>
+    <string name="detail_title_profiles">Island Profiles</string>
+    <string name="profiles_active_badge">Active</string>
+    <string name="profiles_current_setup">Current Active Setup</string>
+    <string name="profiles_btn_new">New Profile</string>
+    <string name="profiles_btn_update">Save Tweak</string>
+    <string name="profiles_btn_apply">Apply</string>
+    <string name="profiles_btn_export">Export</string>
+    <string name="profiles_btn_import">Import</string>
+    <string name="profiles_tab_all">All</string>
+    <string name="profiles_tab_presets">Presets</string>
+    <string name="profiles_tab_custom">Custom</string>
+    <string name="profiles_dialog_create_title">Create New Profile</string>
+    <string name="profiles_dialog_create_desc">Save your current island setup as a reusable profile</string>
+    <string name="profiles_dialog_name_label">Profile Name</string>
+    <string name="profiles_dialog_desc_label">Description (optional)</string>
+    <string name="profiles_dialog_rename_title">Rename Profile</string>
+    <string name="profiles_dialog_delete_title">Delete Profile</string>
+    <string name="profiles_dialog_delete_msg">Are you sure you want to delete profile \"%1$s\"?</string>
+    <string name="profiles_dialog_import_title">Import Profile JSON</string>
+    <string name="profiles_dialog_import_hint">Paste profile JSON here…</string>
+    <string name="profiles_toast_created">Profile \"%1$s\" created!</string>
+    <string name="profiles_toast_applied">Applied \"%1$s\"</string>
+    <string name="profiles_toast_updated">Updated \"%1$s\" with current settings</string>
+    <string name="profiles_toast_deleted">Deleted \"%1$s\"</string>
+    <string name="profiles_toast_renamed">Renamed to \"%1$s\"</string>
+    <string name="profiles_toast_imported">Imported \"%1$s\"</string>
+    <string name="profiles_toast_import_failed">Invalid profile JSON</string>
+    <string name="profiles_toast_copied">Profile JSON copied to clipboard</string>
+    <string name="btn_delete">Delete</string>
 </resources>

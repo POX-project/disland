@@ -271,3 +271,7 @@ Contributions are warmly welcomed! Please read [CONTRIBUTING.md](CONTRIBUTING.md
 Smart Island is licensed under the [GNU General Public License v3.0](LICENSE).  
 Copyright (C) 2026 **Animesh Gupta**.
 
+---
+
+## 🇵🇸 Solidarity
+**FREE PALESTINE** — Support justice, end oppression, and spread awareness on all matters of shared humanity.

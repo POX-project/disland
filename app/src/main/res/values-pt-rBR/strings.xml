@@ -376,4 +376,5 @@
     <string name="expanded_action_reply">Responder</string>
     <string name="expanded_action_mark_read">Marcar como lida</string>
     <string name="expanded_action_dismiss">Dispensar</string>
+    <string name="expanded_action_open">Abrir</string>
 </resources>

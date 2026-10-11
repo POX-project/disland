@@ -52,7 +52,12 @@ fun BluetoothExpanded(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(start = 18.dp, top = 14.dp, end = 18.dp, bottom = bottomPadding),
+            .padding(
+                start = settings.expandedContentHorizontalPadding.dp,
+                top = settings.expandedContentVerticalPadding.dp,
+                end = settings.expandedContentHorizontalPadding.dp,
+                bottom = bottomPadding
+            ),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {

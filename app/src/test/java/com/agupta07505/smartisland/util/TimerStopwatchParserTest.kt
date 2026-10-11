@@ -265,4 +265,93 @@ class TimerStopwatchParserTest {
         assertEquals("00:45", TimerStopwatchParser.formatTime(45L))
         assertEquals("1:02:15", TimerStopwatchParser.formatTime(3735L))
     }
+
+    @Test
+    fun testInstagramReelNotificationNotTimer() {
+        val extras = createBaseExtras()
+        every { extras.getCharSequence(Notification.EXTRA_TITLE) } returns "john_doe"
+        every { extras.getCharSequence(Notification.EXTRA_TEXT) } returns "sent a reel by creator • 0:30"
+
+        val notification = mockk<Notification>()
+        notification.extras = extras
+        notification.flags = 0
+        notification.actions = null
+        // Server timestamp 2 seconds in the future due to network clock skew
+        notification.`when` = System.currentTimeMillis() + 2000L
+        notification.tickerText = null
+        notification.category = null
+
+        val sbn = mockk<StatusBarNotification>()
+        every { sbn.packageName } returns "com.instagram.android"
+        every { sbn.notification } returns notification
+
+        assertFalse(TimerStopwatchParser.isTimer(sbn))
+        assertFalse(TimerStopwatchParser.isStopwatch(sbn))
+        assertFalse(TimerStopwatchParser.isTimerFinished(notification, "com.instagram.android"))
+    }
+
+    @Test
+    fun testWhatsAppMessageWithLaptopNotStopwatch() {
+        val extras = createBaseExtras()
+        every { extras.getCharSequence(Notification.EXTRA_TITLE) } returns "Alex"
+        every { extras.getCharSequence(Notification.EXTRA_TEXT) } returns "Did you close your laptop? Let's split the bill"
+
+        val notification = mockk<Notification>()
+        notification.extras = extras
+        notification.flags = 0
+        notification.actions = null
+        notification.`when` = System.currentTimeMillis()
+        notification.tickerText = null
+        notification.category = null
+
+        val sbn = mockk<StatusBarNotification>()
+        every { sbn.packageName } returns "com.whatsapp"
+        every { sbn.notification } returns notification
+
+        assertFalse(TimerStopwatchParser.isStopwatch(sbn))
+        assertFalse(TimerStopwatchParser.isTimer(sbn))
+    }
+
+    @Test
+    fun testChatMessageWithRemainingNotTimer() {
+        val extras = createBaseExtras()
+        every { extras.getCharSequence(Notification.EXTRA_TITLE) } returns "Team Chat"
+        every { extras.getCharSequence(Notification.EXTRA_TEXT) } returns "15 min remaining for 05:30 sync"
+
+        val notification = mockk<Notification>()
+        notification.extras = extras
+        notification.flags = 0
+        notification.actions = null
+        notification.`when` = System.currentTimeMillis()
+        notification.tickerText = null
+        notification.category = null
+
+        val sbn = mockk<StatusBarNotification>()
+        every { sbn.packageName } returns "org.telegram.messenger"
+        every { sbn.notification } returns notification
+
+        assertFalse(TimerStopwatchParser.isTimer(sbn))
+        assertFalse(TimerStopwatchParser.isStopwatch(sbn))
+    }
+
+    @Test
+    fun testNonClockNotificationWithFutureTimestampNotTimer() {
+        val extras = createBaseExtras()
+        every { extras.getCharSequence(Notification.EXTRA_TITLE) } returns "Flight Reminder"
+        every { extras.getCharSequence(Notification.EXTRA_TEXT) } returns "Flight departs at 08:30"
+
+        val notification = mockk<Notification>()
+        notification.extras = extras
+        notification.flags = 0
+        notification.actions = null
+        notification.`when` = System.currentTimeMillis() + 3600000L
+        notification.tickerText = null
+        notification.category = null
+
+        val sbn = mockk<StatusBarNotification>()
+        every { sbn.packageName } returns "com.google.android.gm"
+        every { sbn.notification } returns notification
+
+        assertFalse(TimerStopwatchParser.isTimer(sbn))
+    }
 }

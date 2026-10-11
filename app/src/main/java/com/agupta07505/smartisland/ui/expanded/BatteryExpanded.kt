@@ -144,7 +144,12 @@ fun BatteryExpanded(
         modifier = Modifier
             .fillMaxWidth()
             .wrapContentHeight()
-            .padding(start = 18.dp, top = 20.dp, end = 18.dp, bottom = bottomPadding)
+            .padding(
+                start = settings.expandedContentHorizontalPadding.dp,
+                top = settings.expandedContentVerticalPadding.dp,
+                end = settings.expandedContentHorizontalPadding.dp,
+                bottom = bottomPadding
+            )
             .heightIn(min = 72.dp, max = 110.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically

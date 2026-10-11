@@ -86,7 +86,7 @@ class NotificationPriorityTest {
         
         notification.category = Notification.CATEGORY_MESSAGE
         notification.flags = 0
-        val extras = mockk<android.os.Bundle>()
+        val extras = mockk<android.os.Bundle>(relaxed = true)
         every { extras.getCharSequence(Notification.EXTRA_TITLE) } returns "Title"
         every { extras.getCharSequence(Notification.EXTRA_TEXT) } returns "Text"
         every { extras.getCharSequence(Notification.EXTRA_BIG_TEXT) } returns null
@@ -114,7 +114,7 @@ class NotificationPriorityTest {
         
         notification.category = Notification.CATEGORY_MESSAGE
         notification.flags = 0
-        val extras = mockk<android.os.Bundle>()
+        val extras = mockk<android.os.Bundle>(relaxed = true)
         every { extras.getCharSequence(Notification.EXTRA_TITLE) } returns "Title"
         every { extras.getCharSequence(Notification.EXTRA_TEXT) } returns "Text"
         every { extras.getCharSequence(Notification.EXTRA_BIG_TEXT) } returns null
@@ -139,7 +139,7 @@ class NotificationPriorityTest {
         val notification = mockk<Notification>()
         val pm = mockk<PackageManager>()
         val appInfo = mockk<ApplicationInfo>()
-        val extras = mockk<android.os.Bundle>()
+        val extras = mockk<android.os.Bundle>(relaxed = true)
 
         notification.category = Notification.CATEGORY_PROGRESS
         notification.flags = Notification.FLAG_ONGOING_EVENT
@@ -173,7 +173,7 @@ class NotificationPriorityTest {
             action.title = label
             notification.actions = arrayOf(action)
 
-            val extras = mockk<android.os.Bundle>()
+            val extras = mockk<android.os.Bundle>(relaxed = true)
             every { extras.getString(Notification.EXTRA_TEMPLATE) } returns null
             every { extras.containsKey(Notification.EXTRA_MEDIA_SESSION) } returns false
             every { extras.getInt(Notification.EXTRA_PROGRESS_MAX, 0) } returns 0

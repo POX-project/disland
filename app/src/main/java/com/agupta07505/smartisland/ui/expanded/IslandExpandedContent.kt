@@ -61,7 +61,8 @@ fun IslandExpandedContent(
     onHeightMeasured: (Dp) -> Unit,
     settings: SmartIslandSettings,
     modifier: Modifier = Modifier,
-    onReplyStateChanged: (Boolean) -> Unit = {}
+    onReplyStateChanged: (Boolean) -> Unit = {},
+    onDismissNotification: () -> Unit = {}
 ) {
     if (notifications.isEmpty()) {
         val density = LocalDensity.current
@@ -124,7 +125,7 @@ fun IslandExpandedContent(
         }
     }
 
-    val bottomPadding = 16.dp
+    val bottomPadding = settings.expandedContentVerticalPadding.dp
 
     Column(modifier = modifier.fillMaxWidth().wrapContentHeight()) {
 
@@ -138,11 +139,11 @@ fun IslandExpandedContent(
         fun clampHeightForMode(notif: IslandNotification?, height: Dp): Dp {
             return when (notif?.mode) {
                 IslandMode.Battery, IslandMode.IncomingCall -> height.coerceIn(72.dp, 125.dp)
-                IslandMode.Notification -> height.coerceIn(95.dp, 145.dp)
-                IslandMode.Music -> height.coerceIn(115.dp, 180.dp)
+                IslandMode.Notification -> height.coerceIn(95.dp, 380.dp)
+                IslandMode.Music -> height.coerceIn(115.dp, 380.dp)
                 IslandMode.LiveActivity -> height.coerceIn(140.dp, 205.dp)
                 IslandMode.Navigation -> height.coerceIn(135.dp, 195.dp)
-                IslandMode.DownloadUpload -> height.coerceIn(120.dp, 195.dp)
+                IslandMode.DownloadUpload -> height.coerceIn(120.dp, 240.dp)
                 IslandMode.Hotspot -> height.coerceIn(120.dp, 195.dp)
                 IslandMode.Bluetooth -> height.coerceIn(72.dp, 130.dp)
                 IslandMode.Flashlight -> height.coerceIn(72.dp, 130.dp)
@@ -170,7 +171,7 @@ fun IslandExpandedContent(
             val nextHeight = (nextHeightRaw?.let { clampHeightForMode(nextNotification, it) }
                 ?: com.agupta07505.smartisland.ui.defaultEstimatedHeightForMode(nextNotification?.mode))
             val fraction = kotlin.math.abs(offsetFraction)
-            (currentPageHeight + (nextHeight - currentPageHeight) * fraction).coerceIn(72.dp, 205.dp)
+            (currentPageHeight + (nextHeight - currentPageHeight) * fraction).coerceIn(72.dp, 380.dp)
         }
 
         LaunchedEffect(targetHeight) {
@@ -205,7 +206,7 @@ fun IslandExpandedContent(
                                 interactionSource = remember { MutableInteractionSource() },
                                 indication = null
                             ) {
-                                onOpenNotification(notification)
+                                onCollapse()
                             }
                     ) {
                         when (notification.mode) {
@@ -216,7 +217,8 @@ fun IslandExpandedContent(
                                 onCollapse = onCollapse,
                                 showActions = settings.showNotificationActions,
                                 settings = settings,
-                                onReplyStateChanged = onReplyStateChanged
+                                onReplyStateChanged = onReplyStateChanged,
+                                onDismiss = onDismissNotification
                             )
                             IslandMode.IncomingCall -> IncomingCallExpanded(
                                 notification = notification,
@@ -318,7 +320,12 @@ private fun EmptyExpanded(
         modifier = Modifier
             .fillMaxWidth()
             .wrapContentHeight(unbounded = true)
-            .padding(start = 18.dp, top = 16.dp, end = 18.dp, bottom = 12.dp),
+            .padding(
+                start = settings.expandedContentHorizontalPadding.dp,
+                top = settings.expandedContentVerticalPadding.dp,
+                end = settings.expandedContentHorizontalPadding.dp,
+                bottom = 12.dp
+            ),
         verticalArrangement = Arrangement.Center
     ) {
         val loadedApps = apps

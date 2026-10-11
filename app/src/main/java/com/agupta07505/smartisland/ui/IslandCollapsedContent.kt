@@ -28,14 +28,17 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Navigation
 import androidx.compose.material.icons.rounded.LocationOn
 import androidx.compose.material.icons.rounded.Call
+import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.MusicNote
 import androidx.compose.material.icons.rounded.Bolt
 import androidx.compose.material.icons.rounded.BatteryAlert
@@ -95,9 +98,10 @@ fun IslandCollapsedContent(
         Box(
             modifier = Modifier
                 .align(Alignment.CenterStart)
-                .padding(start = LEFT_SLOT_PADDING_START_DP.dp)
+                .padding(start = settings.contentHorizontalPadding.dp)
                 .graphicsLayer {
                     translationX = translationXLeft
+                    translationY = with(density) { settings.contentVerticalPadding.dp.toPx() }
                 },
             contentAlignment = Alignment.Center
         ) {
@@ -130,7 +134,7 @@ fun IslandCollapsedContent(
                             contentDescription = null,
                             modifier = Modifier
                                 .size(22.dp)
-                                .clip(CircleShape)
+                                .clip(RoundedCornerShape(5.dp))
                         )
                     } else {
                         Box(
@@ -213,32 +217,49 @@ fun IslandCollapsedContent(
         Box(
             modifier = Modifier
                 .align(Alignment.CenterEnd)
-                .padding(end = RIGHT_SLOT_PADDING_END_DP.dp)
+                .padding(end = settings.contentHorizontalPadding.dp)
                 .graphicsLayer {
                     translationX = translationXRight
+                    translationY = with(density) { settings.contentVerticalPadding.dp.toPx() }
                 },
             contentAlignment = Alignment.Center
         ) {
             when (mode) {
                 IslandMode.Notification -> {
                     Box(
-                        modifier = Modifier
-                            .size(8.dp)
-                            .clip(CircleShape)
-                            .background(Color(settings.notificationDotColor))
-                    )
+                        modifier = Modifier.size(20.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(8.dp)
+                                .clip(CircleShape)
+                                .background(Color(settings.notificationDotColor))
+                        )
+                    }
                 }
                 IslandMode.IncomingCall -> {
-                    if (notification?.isCallRinging == true) {
-                        Text(
-                            text = "Ringing...",
-                            color = Color(settings.callColor),
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                    } else {
-                        val time = notification?.timeMillis ?: System.currentTimeMillis()
-                        CallTimer(postTimeMillis = time, color = Color(settings.callColor))
+                    when {
+                        notification?.isCallRinging == true -> {
+                            Text(
+                                text = "Ringing...",
+                                color = Color(settings.callColor),
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                        notification?.isCallDialing == true -> {
+                            Text(
+                                text = "Calling...",
+                                color = Color(settings.callColor),
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                        else -> {
+                            val time = notification?.timeMillis ?: System.currentTimeMillis()
+                            CallTimer(postTimeMillis = time, color = Color(settings.callColor))
+                        }
                     }
                 }
                 IslandMode.Music -> {
@@ -429,40 +450,23 @@ internal fun BatteryCollapsedGlyph(notification: IslandNotification?, settings: 
 
 @Composable
 internal fun NotificationGlyph(notification: IslandNotification?, settings: SmartIslandSettings = SmartIslandSettings.Default) {
-    val largeIcon = notification?.largeIcon
-    val icon = notification?.icon
-    val mainIcon = largeIcon ?: icon
-    if (mainIcon != null) {
-        Box(modifier = Modifier.size(22.dp)) {
+    val appIcon = notification?.icon ?: notification?.largeIcon
+    if (appIcon != null) {
+        Box(
+            modifier = Modifier
+                .size(20.dp)
+                .clip(CircleShape)
+        ) {
             Image(
-                bitmap = mainIcon.asImageBitmap(),
+                bitmap = appIcon.asImageBitmap(),
                 contentDescription = null,
-                modifier = Modifier
-                    .fillMaxSize()
-                    .clip(CircleShape)
+                modifier = Modifier.fillMaxSize()
             )
-            if (largeIcon != null && icon != null) {
-                Box(
-                    modifier = Modifier
-                        .size(10.dp)
-                        .align(Alignment.BottomEnd)
-                        .background(Color.Black, CircleShape)
-                        .padding(1.dp)
-                ) {
-                    Image(
-                        bitmap = icon.asImageBitmap(),
-                        contentDescription = null,
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .clip(CircleShape)
-                    )
-                }
-            }
         }
     } else {
         Box(
             modifier = Modifier
-                .size(22.dp)
+                .size(20.dp)
                 .clip(CircleShape)
                 .background(Color(settings.notificationDotColor)),
             contentAlignment = Alignment.Center
@@ -470,7 +474,7 @@ internal fun NotificationGlyph(notification: IslandNotification?, settings: Smar
             Text(
                 text = notification?.appName?.firstOrNull()?.uppercase() ?: "S",
                 color = Color.White,
-                fontSize = 11.sp,
+                fontSize = 10.sp,
                 fontWeight = FontWeight.Bold
             )
         }
@@ -806,30 +810,47 @@ private fun DownloadUploadCollapsedRight(
         else -> 1f
     }.coerceIn(0f, 1f)
 
+    val isDone = remember(notification) { notification?.isDownloadDone == true }
+
     Box(
         modifier = Modifier.size(22.dp),
         contentAlignment = Alignment.Center
     ) {
-        SmoothCircularRingProgress(
-            progress = progress,
-            color = accentColor,
-            strokeWidthDp = 2.5f,
-            modifier = Modifier.size(19.dp)
-        )
-
-        Box(
-            modifier = Modifier
-                .size(19.dp)
-                .clip(CircleShape),
-            contentAlignment = Alignment.Center
-        ) {
-            CustomPremiumTransferIcon(
-                isUpload = isUpload,
-                color = accentColor,
-                motionProgress = motionFraction,
-                alphaFraction = arrowAlpha,
-                modifier = Modifier.size(14.dp)
+        if (isDone) {
+            SmoothCircularRingProgress(
+                progress = 1f,
+                color = Color(0xFF10B981),
+                strokeWidthDp = 2.5f,
+                modifier = Modifier.size(19.dp)
             )
+            Icon(
+                imageVector = Icons.Rounded.Check,
+                contentDescription = null,
+                tint = Color(0xFF10B981),
+                modifier = Modifier.size(12.dp)
+            )
+        } else {
+            SmoothCircularRingProgress(
+                progress = progress,
+                color = accentColor,
+                strokeWidthDp = 2.5f,
+                modifier = Modifier.size(19.dp)
+            )
+
+            Box(
+                modifier = Modifier
+                    .size(19.dp)
+                    .clip(CircleShape),
+                contentAlignment = Alignment.Center
+            ) {
+                CustomPremiumTransferIcon(
+                    isUpload = isUpload,
+                    color = accentColor,
+                    motionProgress = motionFraction,
+                    alphaFraction = arrowAlpha,
+                    modifier = Modifier.size(14.dp)
+                )
+            }
         }
     }
 }
@@ -1018,6 +1039,6 @@ internal fun StopwatchTimer(notification: IslandNotification?, color: Color) {
 }
 
 // Collapsed content animation
-private val COLLAPSED_TRANSLATION_MAX_DP = 32.dp
+private val COLLAPSED_TRANSLATION_MAX_DP = 4.dp
 private const val LEFT_SLOT_PADDING_START_DP = 8
 private const val RIGHT_SLOT_PADDING_END_DP = 12

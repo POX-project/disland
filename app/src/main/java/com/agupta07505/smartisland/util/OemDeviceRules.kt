@@ -200,6 +200,7 @@ object OemDeviceRules {
         titleText: String,
         device: OemDeviceType = detectCurrentDevice()
     ): Boolean {
+        if (NotificationFilter.isMessagingPackage(packageName)) return false
         val lowerText = titleText.lowercase()
         val isKeywordMatch = SCREEN_RECORDING_KEYWORDS.any { lowerText.contains(it) }
 
@@ -254,6 +255,7 @@ object OemDeviceRules {
         packageName: String,
         titleText: String
     ): Boolean {
+        if (NotificationFilter.isMessagingPackage(packageName)) return false
         val lowerText = titleText.lowercase()
         return packageName in HOTSPOT_PACKAGES || HOTSPOT_KEYWORDS.any { lowerText.contains(it) }
     }

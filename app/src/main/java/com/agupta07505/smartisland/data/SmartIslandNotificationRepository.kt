@@ -36,26 +36,133 @@ class SmartIslandNotificationRepository : INotificationRepository {
     private val _commands = MutableSharedFlow<SmartIslandCommand>(extraBufferCapacity = 16)
     override val commands: SharedFlow<SmartIslandCommand> = _commands.asSharedFlow()
 
+    private fun isProgressOrTimeRemainingUpdate(text: String): Boolean {
+        val lower = text.lowercase()
+        return listOf(
+            "remaining", "left", "eta", "time remaining", "time left",
+            "mb/s", "kb/s", "gb/s", "kbps", "mbps", "b/s", "k/s", "m/s",
+            "bytes", "mb /", "gb /", "kb /", "mb of", "gb of", "%",
+            "downloading", "uploading", "installing", "updating"
+        ).any { lower.contains(it) }
+    }
+
     override fun postNotification(notification: IslandNotification, autoExpand: Boolean) {
-        var isNewNotification = false
+        val isDownloadOrProgress = notification.mode == IslandMode.DownloadUpload ||
+            notification.mode == IslandMode.Music ||
+            notification.mode == IslandMode.ScreenRecording ||
+            notification.mode == IslandMode.Timer ||
+            notification.mode == IslandMode.Stopwatch ||
+            notification.progressMax > 0
+
+        var shouldTriggerAutoExpand = false
         _notifications.update { existingNotifications ->
             val updated = existingNotifications.toMutableList()
             val index = updated.indexOfFirst { it.key == notification.key }
             if (index >= 0) {
                 val existing = updated[index]
+                val isExistingDownloadOrProgress = isDownloadOrProgress ||
+                    existing.mode == IslandMode.DownloadUpload ||
+                    existing.progressMax > 0 ||
+                    isProgressOrTimeRemainingUpdate(notification.text) ||
+                    isProgressOrTimeRemainingUpdate(existing.text)
+
+                // For existing notifications, NEVER auto-expand on progress or time-remaining updates!
+                // Only allow auto-expand if a genuine new chat message from the contact arrived in the thread.
+                val hasNewIncomingChatMessage = notification.isMessaging &&
+                    notification.messages.size > existing.messages.size &&
+                    notification.messages.lastOrNull()?.isFromUser == false
+
+                if (!isExistingDownloadOrProgress && (hasNewIncomingChatMessage || (existing.title != notification.title && autoExpand))) {
+                    shouldTriggerAutoExpand = true
+                }
+
+                val mergedMessages = mergeChatMessages(existing.messages, notification.messages)
+                val finalMessages = if (mergedMessages.isNotEmpty()) mergedMessages else notification.messages
                 updated[index] = notification.copy(
                     icon = notification.icon ?: existing.icon,
-                    largeIcon = notification.largeIcon ?: existing.largeIcon
+                    largeIcon = notification.largeIcon ?: existing.largeIcon,
+                    picture = notification.picture ?: existing.picture,
+                    messages = finalMessages
                 )
             } else {
-                isNewNotification = true
+                if (autoExpand && !isDownloadOrProgress && !isProgressOrTimeRemainingUpdate(notification.text)) {
+                    shouldTriggerAutoExpand = true
+                }
                 updated.add(notification)
             }
             updated.takeLast(MAX_STORED_NOTIFICATIONS)
         }
-        if (autoExpand && isNewNotification) {
+        if (shouldTriggerAutoExpand) {
             _autoExpandEvent.tryEmit(notification.key)
         }
+    }
+
+    override fun appendUserReply(key: String, replyText: String) {
+        if (replyText.isBlank()) return
+        val now = System.currentTimeMillis()
+        val userMsg = com.agupta07505.smartisland.model.IslandChatMessage(
+            sender = "You",
+            text = replyText.trim(),
+            timeMillis = now,
+            isFromUser = true
+        )
+        _notifications.update { list ->
+            val updated = list.toMutableList()
+            val index = updated.indexOfFirst { it.key == key }
+            if (index >= 0) {
+                val existing = updated[index]
+                val newMessages = (existing.messages + userMsg).takeLast(30)
+                updated[index] = existing.copy(
+                    text = replyText.trim(),
+                    timeMillis = now,
+                    messages = newMessages
+                )
+            }
+            updated
+        }
+    }
+
+    private fun mergeChatMessages(
+        existing: List<com.agupta07505.smartisland.model.IslandChatMessage>,
+        incoming: List<com.agupta07505.smartisland.model.IslandChatMessage>
+    ): List<com.agupta07505.smartisland.model.IslandChatMessage> {
+        if (existing.isEmpty()) return incoming
+        if (incoming.isEmpty()) return existing
+
+        val result = ArrayList<com.agupta07505.smartisland.model.IslandChatMessage>(existing)
+        for (newMsg in incoming) {
+            val newText = newMsg.text.trim()
+            val existingIndex = result.indexOfLast { existingMsg ->
+                val existingText = existingMsg.text.trim()
+                if (existingText != newText) return@indexOfLast false
+                // Case 1: Same sender flag within 30 seconds
+                if (existingMsg.isFromUser == newMsg.isFromUser &&
+                    kotlin.math.abs(existingMsg.timeMillis - newMsg.timeMillis) < 30_000L
+                ) {
+                    return@indexOfLast true
+                }
+                // Case 2: User reply echo! User sent this exact text recently (< 60s), and the incoming notification
+                // contains the same text, possibly tagged without isFromUser flag.
+                if (existingMsg.isFromUser && kotlin.math.abs(existingMsg.timeMillis - newMsg.timeMillis) < 60_000L) {
+                    return@indexOfLast true
+                }
+                false
+            }
+
+            if (existingIndex >= 0) {
+                // If message already existed as user reply, preserve isFromUser = true and update timestamp
+                val existingMsg = result[existingIndex]
+                if (existingMsg.isFromUser && !newMsg.isFromUser) {
+                    result[existingIndex] = existingMsg.copy(
+                        timeMillis = kotlin.math.max(existingMsg.timeMillis, newMsg.timeMillis)
+                    )
+                }
+            } else {
+                result.add(newMsg)
+            }
+        }
+        result.sortBy { it.timeMillis }
+        return result.takeLast(30)
     }
 
     override fun removeNotification(key: String) {
@@ -100,6 +207,14 @@ class SmartIslandNotificationRepository : INotificationRepository {
                 actionIntents = listOf(
                     IslandNotificationAction("Reply", null, isQuickReply = true, remoteInputKey = "key_text_reply"),
                     IslandNotificationAction("Mark Read", null)
+                ),
+                messages = listOf(
+                    com.agupta07505.smartisland.model.IslandChatMessage(
+                        sender = "Alice Smith",
+                        text = "Hey! Are we still meeting for lunch today?",
+                        timeMillis = System.currentTimeMillis() - 45000L,
+                        isFromUser = false
+                    )
                 )
             )
             IslandMode.IncomingCall -> IslandNotification(
@@ -198,37 +313,58 @@ class SmartIslandNotificationRepository : INotificationRepository {
             )
             IslandMode.DownloadUpload -> {
                 val hasDownload = _notifications.value.any { it.key == "demo_download" }
-                if (!hasDownload) {
-                    IslandNotification(
-                        key = "demo_download",
-                        packageName = "com.android.chrome",
-                        appName = "Chrome",
-                        title = "video_2026_download.mp4",
-                        text = "Downloading... 145 MB of 280 MB • 52%",
-                        timeMillis = System.currentTimeMillis(),
-                        mode = IslandMode.DownloadUpload,
-                        progress = 52,
-                        progressMax = 100,
-                        actionIntents = listOf(
-                            IslandNotificationAction("Pause", null),
-                            IslandNotificationAction("Cancel", null)
+                val hasUpload = _notifications.value.any { it.key == "demo_upload" }
+                val hasComplete = _notifications.value.any { it.key == "demo_download_complete" }
+                when {
+                    !hasDownload -> {
+                        IslandNotification(
+                            key = "demo_download",
+                            packageName = "com.android.chrome",
+                            appName = "Chrome",
+                            title = "video_2026_download.mp4",
+                            text = "Downloading... 145 MB of 280 MB • 52%",
+                            timeMillis = System.currentTimeMillis(),
+                            mode = IslandMode.DownloadUpload,
+                            progress = 52,
+                            progressMax = 100,
+                            actionIntents = listOf(
+                                IslandNotificationAction("Pause", null),
+                                IslandNotificationAction("Cancel", null)
+                            )
                         )
-                    )
-                } else {
-                    IslandNotification(
-                        key = "demo_upload",
-                        packageName = "com.google.android.apps.docs",
-                        appName = "Google Drive",
-                        title = "presentation_2026.pdf",
-                        text = "Uploading... 85 MB of 120 MB • 70%",
-                        timeMillis = System.currentTimeMillis(),
-                        mode = IslandMode.DownloadUpload,
-                        progress = 70,
-                        progressMax = 100,
-                        actionIntents = listOf(
-                            IslandNotificationAction("Cancel", null)
+                    }
+                    !hasUpload -> {
+                        IslandNotification(
+                            key = "demo_upload",
+                            packageName = "com.google.android.apps.docs",
+                            appName = "Google Drive",
+                            title = "presentation_2026.pdf",
+                            text = "Uploading... 85 MB of 120 MB • 70%",
+                            timeMillis = System.currentTimeMillis(),
+                            mode = IslandMode.DownloadUpload,
+                            progress = 70,
+                            progressMax = 100,
+                            actionIntents = listOf(
+                                IslandNotificationAction("Cancel", null)
+                            )
                         )
-                    )
+                    }
+                    else -> {
+                        IslandNotification(
+                            key = "demo_download_complete",
+                            packageName = "com.android.chrome",
+                            appName = "Chrome",
+                            title = "archive_update.zip",
+                            text = "Download complete • 2.8 GB",
+                            timeMillis = System.currentTimeMillis(),
+                            mode = IslandMode.DownloadUpload,
+                            progress = 100,
+                            progressMax = 100,
+                            actionIntents = listOf(
+                                IslandNotificationAction("Open", null)
+                            )
+                        )
+                    }
                 }
             }
             IslandMode.Hotspot -> IslandNotification(

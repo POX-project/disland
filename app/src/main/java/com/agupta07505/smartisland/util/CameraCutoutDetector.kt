@@ -118,6 +118,14 @@ object CameraCutoutDetector {
         return fallbackInfo(context)
     }
 
+    /**
+     * Checks if the device has a physical camera cutout connected flush to the top bezel (waterdrop / dot-drop / mac-style notch).
+     */
+    fun hasHardwareNotch(context: Context): Boolean {
+        val info = detect(context)
+        return info.hasHardwareCutout && info.yOffsetDp <= 2f
+    }
+
     private fun fallbackInfo(context: Context): DetectedCutoutInfo {
         val resourceId = context.resources.getIdentifier("status_bar_height", "dimen", "android")
         val heightPx = if (resourceId > 0) context.resources.getDimensionPixelSize(resourceId) else 0

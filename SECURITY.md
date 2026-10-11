@@ -2,13 +2,13 @@
 
 ## Supported Versions
 
-Security fixes are handled for the current v3 release and the `main` branch unless a separate maintained release branch is announced.
+Security fixes are handled for the current v6 release and the `main` branch unless a separate maintained release branch is announced.
 
 | Version | Supported |
 | --- | --- |
-| `3.x` | Yes |
+| `6.x` | Yes |
 | `main` | Yes |
-| `< 3.0` | No |
+| `< 6.0` | No |
 
 ## Reporting A Vulnerability
 

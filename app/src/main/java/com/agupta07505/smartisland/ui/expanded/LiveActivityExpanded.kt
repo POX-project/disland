@@ -85,7 +85,12 @@ fun LiveActivityExpanded(
         modifier = Modifier
             .fillMaxWidth()
             .wrapContentHeight()
-            .padding(start = 18.dp, top = 20.dp, end = 18.dp, bottom = bottomPadding),
+            .padding(
+                start = settings.expandedContentHorizontalPadding.dp,
+                top = settings.expandedContentVerticalPadding.dp,
+                end = settings.expandedContentHorizontalPadding.dp,
+                bottom = bottomPadding
+            ),
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
         // Top Section: Icon on Left (42.dp like NotificationExpanded) + Title/Text in Middle + ETA Badge on Right

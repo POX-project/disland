@@ -15,6 +15,7 @@ import android.content.IntentFilter
 import android.os.BatteryManager
 import android.os.Build
 import android.os.PowerManager
+
 import com.agupta07505.smartisland.data.INotificationRepository
 import com.agupta07505.smartisland.model.IslandMode
 import com.agupta07505.smartisland.model.IslandNotification
@@ -94,7 +95,9 @@ class SystemEventReceiver(
                             updateBatteryState(context, intent, autoExpand = false)
                         }
                     } else if (charging) {
-                        updateBatteryIsland(context, intent, autoExpand = false)
+                        if (notificationRepository.notifications.value.any { it.key == "system_battery" }) {
+                            updateBatteryIsland(context, intent, autoExpand = false)
+                        }
                     } else {
                         updateBatteryState(context, intent, autoExpand = false)
                     }

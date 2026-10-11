@@ -44,29 +44,43 @@ object NotificationFilter {
         } else {
             if (packageName in SYSTEM_LEVEL_PACKAGES) return true
             if (packageName in disabledNotificationPackages) return true
-            if (isSystemLevelCategory(notification)) return true
+            if (isSystemLevelCategory(notification, packageName, packageManager)) return true
             if (isSystemLevelPackage(packageName, packageManager)) return true
         }
 
-        // Suppress group summary notifications (they are handled separately in the service:
-        // cancelled from the system shade but never shown in the island)
+        // Suppress group summary notifications only if they are pure empty group summaries without independent message content
         val isGroupSummary = (notification.flags and Notification.FLAG_GROUP_SUMMARY) != 0
-        if (isGroupSummary) return true
+        if (isGroupSummary) {
+            val extras = notification.extras
+            val hasTextLines = !extras?.getCharSequenceArray(Notification.EXTRA_TEXT_LINES).isNullOrEmpty()
+            val hasMessages = !extras?.getParcelableArray(Notification.EXTRA_MESSAGES).isNullOrEmpty()
+            val hasDirectContent = !extras?.getCharSequence(Notification.EXTRA_TEXT).isNullOrBlank() ||
+                !extras?.getCharSequence(Notification.EXTRA_BIG_TEXT).isNullOrBlank() ||
+                !extras?.getCharSequence(Notification.EXTRA_TITLE).isNullOrBlank()
+            if (!hasTextLines && !hasMessages && !hasDirectContent) {
+                return true
+            }
+        }
 
-        // Suppress if both title and text are null or blank (except for dedicated hardware/clock modes)
+        // Check extracted title and text across all Android notification styles
         val extras = notification.extras
-        val title = extras?.getCharSequence(Notification.EXTRA_TITLE)?.toString()
-            ?: extras?.getCharSequence(Notification.EXTRA_SUB_TEXT)?.toString()
-        val text = extras?.getCharSequence(Notification.EXTRA_TEXT)?.toString()
-            ?: extras?.getCharSequence(Notification.EXTRA_BIG_TEXT)?.toString()
-            ?: extras?.getCharSequence(Notification.EXTRA_SUB_TEXT)?.toString()
-            ?: extras?.getCharSequence(Notification.EXTRA_INFO_TEXT)?.toString()
-            ?: notification.tickerText?.toString()
-        if (title.isNullOrBlank() && text.isNullOrBlank() && mode != IslandMode.Stopwatch && mode != IslandMode.Timer && mode != IslandMode.ScreenRecording) return true
+        val extractedTitle = NotificationContentExtractor.extractTitle(extras, "", notification)
+        val (extractedText, _) = NotificationContentExtractor.extractText(extras, notification)
+        val hasPictureExtra = extras?.containsKey(Notification.EXTRA_PICTURE) == true ||
+            extras?.containsKey("android.pictureIcon") == true
+        val hasCustomViews = notification.contentView != null ||
+            notification.bigContentView != null ||
+            notification.headsUpContentView != null
+
+        if (extractedTitle.isBlank() && extractedText.isBlank() && !hasPictureExtra && !hasCustomViews &&
+            mode != IslandMode.Stopwatch && mode != IslandMode.Timer && mode != IslandMode.ScreenRecording
+        ) {
+            return true
+        }
 
         // Suppress external torch / flashlight notifications from entering Smart Island,
         // because Smart Island natively manages physical torch state via CameraManager.TorchCallback.
-        val titleText = "$title $text".lowercase()
+        val titleText = "$extractedTitle $extractedText".lowercase()
         val isTorchNotification = listOf("flashlight", "torch", "flash light").any { titleText.contains(it) }
         if (isTorchNotification && packageName != "com.agupta07505.smartisland") {
             return true
@@ -80,14 +94,35 @@ object NotificationFilter {
             return true
         }
 
-        // Suppress ongoing notifications that are not calls, media/music playback, live activities, navigation, downloads/uploads, hotspot, screen recording, timer, or stopwatch
+        // Suppress ongoing notifications that are internal system frameworks or pure progress syncs,
+        // but preserve user-installed apps' ongoing notifications (weather, voice recording, radio,
+        // workouts, fitness, live alerts).
         if (isOngoing) {
-            val isProgressNotification = !isMessageSync && (
-                notification.category == Notification.CATEGORY_PROGRESS ||
-                (notification.extras?.getInt(Notification.EXTRA_PROGRESS_MAX, 0) ?: 0) > 0
-            )
-            if (!isProgressNotification && mode != IslandMode.IncomingCall && mode != IslandMode.Music && mode != IslandMode.LiveActivity && mode != IslandMode.Navigation && mode != IslandMode.DownloadUpload && mode != IslandMode.Hotspot && mode != IslandMode.ScreenRecording && mode != IslandMode.Timer && mode != IslandMode.Stopwatch) {
-                return true
+            if (isSystemLevelPackage(packageName, packageManager)) {
+                val isProgressNotification = !isMessageSync && (
+                    notification.category == Notification.CATEGORY_PROGRESS ||
+                    (notification.extras?.getInt(Notification.EXTRA_PROGRESS_MAX, 0) ?: 0) > 0
+                )
+                val isUserVisibleOngoingCategory =
+                    notification.category == Notification.CATEGORY_ALARM ||
+                    notification.category == Notification.CATEGORY_REMINDER ||
+                    notification.category == Notification.CATEGORY_EVENT ||
+                    notification.category == Notification.CATEGORY_RECOMMENDATION ||
+                    notification.category == Notification.CATEGORY_WORKOUT
+                if (!isProgressNotification &&
+                    !isUserVisibleOngoingCategory &&
+                    mode != IslandMode.IncomingCall &&
+                    mode != IslandMode.Music &&
+                    mode != IslandMode.LiveActivity &&
+                    mode != IslandMode.Navigation &&
+                    mode != IslandMode.DownloadUpload &&
+                    mode != IslandMode.Hotspot &&
+                    mode != IslandMode.ScreenRecording &&
+                    mode != IslandMode.Timer &&
+                    mode != IslandMode.Stopwatch
+                ) {
+                    return true
+                }
             }
         }
 
@@ -112,11 +147,224 @@ object NotificationFilter {
         return !isSystemLevelPackage(packageName, packageManager)
     }
 
-    private fun isSystemLevelCategory(notification: Notification): Boolean {
-        return notification.category == Notification.CATEGORY_SYSTEM ||
-            notification.category == Notification.CATEGORY_STATUS ||
+    /**
+     * Returns true if the package belongs to a recognized messaging or chat app.
+     */
+    fun isMessagingPackage(packageName: String): Boolean {
+        val pkg = packageName.lowercase()
+        return pkg == "com.instagram.android" ||
+            pkg == "com.whatsapp" ||
+            pkg == "com.whatsapp.w4b" ||
+            pkg == "org.telegram.messenger" ||
+            pkg == "org.thunderdog.challegram" ||
+            pkg == "com.viber.voip" ||
+            pkg == "kik.android" ||
+            pkg == "com.snapchat.android" ||
+            pkg == "jp.naver.line.android" ||
+            pkg == "com.discord" ||
+            pkg == "com.skype.raider" ||
+            pkg == "com.microsoft.teams" ||
+            pkg == "com.facebook.orca" ||
+            pkg == "com.facebook.mlite" ||
+            pkg == "com.facebook.katana" ||
+            pkg == "com.facebook.lite" ||
+            pkg == "com.twitter.android" ||
+            pkg == "com.zhiliaoapp.musically" ||
+            pkg == "com.ss.android.ugc.trill" ||
+            pkg == "com.reddit.frontpage" ||
+            pkg == "com.slack" ||
+            pkg == "com.google.android.apps.messaging" ||
+            pkg == "com.android.mms" ||
+            pkg == "com.google.android.talk" ||
+            pkg == "com.signal.android" ||
+            pkg == "org.thoughtcrime.securesms" ||
+            pkg == "com.tencent.mm" ||
+            pkg == "com.kakao.talk" ||
+            pkg == "com.imo.android.imoim" ||
+            pkg.startsWith("org.telegram")
+    }
+
+    /**
+     * Returns true if this notification is from a messaging/chat app.
+     *
+     * Messaging notifications must NEVER be island-only — they should peek in the island
+     * AND remain in the system shade so the user can fully access them (read long texts,
+     * play voice/audio messages, use reply actions, etc.).
+     *
+     * Detection uses three independent signals (any one is sufficient):
+     *  1. Standard Android notification template (MessagingStyle / InboxStyle)
+     *  2. Standard Android notification category (CATEGORY_MESSAGE / CATEGORY_SOCIAL / CATEGORY_EMAIL)
+     *  3. Known messaging app package name (for apps that skip standard categories)
+     */
+    fun isMessagingNotification(notification: Notification, packageName: String): Boolean {
+        val template = notification.extras?.getString(Notification.EXTRA_TEMPLATE)
+        if (template == "android.app.Notification\$MessagingStyle" ||
+            template == "android.app.Notification\$InboxStyle") return true
+        if (notification.category == Notification.CATEGORY_MESSAGE ||
+            notification.category == Notification.CATEGORY_SOCIAL ||
+            notification.category == Notification.CATEGORY_EMAIL) return true
+        return isMessagingPackage(packageName)
+    }
+
+    /**
+     * Returns true ONLY if this notification is an authentic conversation / direct chat message.
+     * Used specifically to determine whether a Reply button and in-island conversation bubbles
+     * should be shown.
+     *
+     * Non-conversations (emails, YouTube/Reddit comments, social feed alerts, OTPs, promotional alerts)
+     * are strictly rejected so that the Reply button and chat view are NEVER shown for them.
+     */
+    fun isAuthenticConversation(
+        notification: Notification,
+        packageName: String,
+        shortcutId: String? = null,
+        channelIsConversation: Boolean? = null
+    ): Boolean {
+        // Downloads, progress bars, and transfers are never conversations
+        val progressMax = notification.extras?.getInt(Notification.EXTRA_PROGRESS_MAX, 0) ?: 0
+        if (progressMax > 0) return false
+
+        // System packages are never conversations
+        if (packageName == "android" || packageName.startsWith("com.android.systemui")) return false
+
+        val pkg = packageName.lowercase()
+
+        // 1. Check Android official MessagingStyle
+        val template = notification.extras?.getString(Notification.EXTRA_TEMPLATE)
+        val hasMessagingTemplate = template == "android.app.Notification\$MessagingStyle" ||
+            template == "androidx.core.app.NotificationCompat\$MessagingStyle"
+        val hasMessagingExtras = notification.extras?.containsKey(Notification.EXTRA_MESSAGES) == true ||
+            notification.extras?.containsKey("android.messagingStyleUser") == true ||
+            runCatching { notification.extras?.getParcelableArray(Notification.EXTRA_MESSAGES) }.getOrNull() != null
+
+        if (hasMessagingTemplate || hasMessagingExtras) {
+            // MessagingStyle is Android's standard for conversations (used by WhatsApp, Telegram, Signal, Instagram DMs, Discord).
+            // Exclude explicit email apps which sometimes wrap emails in styles
+            if (!pkg.contains("mail") && !pkg.contains("outlook")) {
+                return true
+            }
+        }
+
+        // 2. Explicit non-conversation apps: email, video, forums, social feeds, stores, browsers
+        val isExplicitNonChatApp = pkg == "com.google.android.gm" ||
+            pkg.startsWith("com.google.android.youtube") ||
+            pkg == "com.reddit.frontpage" ||
+            pkg == "com.twitter.android" ||
+            pkg == "com.facebook.katana" ||
+            pkg == "com.facebook.lite" ||
+            pkg == "com.zhiliaoapp.musically" ||
+            pkg == "com.ss.android.ugc.trill" ||
+            pkg == "com.linkedin.android" ||
+            pkg == "com.android.vending" ||
+            pkg == "com.android.chrome" ||
+            pkg.startsWith("com.amazon.") ||
+            pkg == "com.spotify.music" ||
+            pkg == "com.netflix.mediaclient"
+
+        if (isExplicitNonChatApp) return false
+
+        // 3. Android 11+ (API 30+) official conversation space
+        if (channelIsConversation == true) return true
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R && !shortcutId.isNullOrBlank()) {
+            if (isDedicatedChatApp(pkg)) return true
+        }
+
+        // 4. Dedicated instant messaging and SMS apps
+        if (isDedicatedChatApp(pkg)) {
+            // Service / status notifications are not conversations
+            if (notification.category == Notification.CATEGORY_STATUS ||
+                notification.category == Notification.CATEGORY_SERVICE ||
+                notification.category == Notification.CATEGORY_SYSTEM
+            ) {
+                return false
+            }
+
+            val title = notification.extras?.getCharSequence(Notification.EXTRA_TITLE)?.toString().orEmpty()
+            val text = notification.extras?.getCharSequence(Notification.EXTRA_TEXT)?.toString().orEmpty()
+            if (title.isBlank() && text.isBlank()) return false
+
+            val combined = "$title $text".lowercase()
+            if (isMessageSyncNotification(combined) ||
+                combined.contains("web is currently active") ||
+                combined.contains("backup in progress") ||
+                combined.contains("checking for new messages")
+            ) {
+                return false
+            }
+
+            // Exclude OTPs, 2FA codes, transactional alerts in SMS apps
+            if (isSmsApp(pkg) && isOtpOrTransactionalSms(combined)) {
+                return false
+            }
+
+            return true
+        }
+
+        return false
+    }
+
+    fun isDedicatedChatApp(packageName: String): Boolean {
+        val pkg = packageName.lowercase()
+        return pkg == "com.google.android.apps.messaging" ||
+            pkg == "com.android.mms" ||
+            pkg == "com.samsung.android.messaging" ||
+            pkg == "com.whatsapp" ||
+            pkg == "com.whatsapp.w4b" ||
+            pkg == "org.telegram.messenger" ||
+            pkg == "org.thunderdog.challegram" ||
+            pkg.startsWith("org.telegram") ||
+            pkg == "com.signal.android" ||
+            pkg == "org.thoughtcrime.securesms" ||
+            pkg == "com.facebook.orca" ||
+            pkg == "com.facebook.mlite" ||
+            pkg == "com.viber.voip" ||
+            pkg == "jp.naver.line.android" ||
+            pkg == "com.tencent.mm" ||
+            pkg == "com.kakao.talk" ||
+            pkg == "com.skype.raider" ||
+            pkg == "kik.android" ||
+            pkg == "com.snapchat.android" ||
+            pkg == "im.vector.app" ||
+            pkg == "com.threema.app" ||
+            pkg == "org.wire" ||
+            pkg == "org.session.aaa"
+    }
+
+    private fun isSmsApp(packageName: String): Boolean {
+        val pkg = packageName.lowercase()
+        return pkg == "com.google.android.apps.messaging" ||
+            pkg == "com.android.mms" ||
+            pkg == "com.samsung.android.messaging"
+    }
+
+    fun isOtpOrTransactionalSms(text: String): Boolean {
+        val lower = text.lowercase()
+        val otpKeywords = listOf(
+            "otp", "verification code", "one-time", "one time password",
+            "security code", "auth code", "login code", "do not share",
+            "do not reply", "txn", "debited", "credited", "bank alert",
+            "transaction alert", "order confirmed", "package delivered"
+        )
+        return otpKeywords.any { lower.contains(it) }
+    }
+
+    fun isAuthenticChatMessage(notification: Notification, packageName: String): Boolean {
+        return isAuthenticConversation(notification, packageName)
+    }
+
+    private fun isSystemLevelCategory(
+        notification: Notification,
+        packageName: String,
+        packageManager: PackageManager
+    ): Boolean {
+        if (notification.category == Notification.CATEGORY_SYSTEM) return true
+        if (notification.category == Notification.CATEGORY_STATUS ||
             notification.category == Notification.CATEGORY_SERVICE ||
             notification.category == Notification.CATEGORY_ERROR
+        ) {
+            return isSystemLevelPackage(packageName, packageManager)
+        }
+        return false
     }
 
     private fun isSystemLevelPackage(packageName: String, packageManager: PackageManager): Boolean {
@@ -155,34 +403,16 @@ fun Notification.toIslandMode(
     val packageName = sbn?.packageName.orEmpty()
     val effectiveDevice = OemDeviceRules.resolveEffectiveDevice(deviceType)
 
-    val titleText = "${extras?.getCharSequence(Notification.EXTRA_TITLE)} ${extras?.getCharSequence(Notification.EXTRA_TEXT)} ${extras?.getCharSequence(Notification.EXTRA_BIG_TEXT)}".lowercase()
+    val titleExtracted = NotificationContentExtractor.extractTitle(extras, "")
+    val (textExtracted, _) = NotificationContentExtractor.extractText(extras, this)
+    val titleText = "$titleExtracted $textExtracted".lowercase()
 
-    // 0. Timer & Stopwatch (Dedicated Clock/Timer support)
-    if (TimerStopwatchParser.isStopwatch(this, packageName)) {
-        return IslandMode.Stopwatch
-    }
-    if (TimerStopwatchParser.isTimer(this, packageName)) {
-        return IslandMode.Timer
-    }
 
-    // 1. Screen & Voice Recording (High priority, OEM-aware)
-    val isRecordingPackageOrKeyword = OemDeviceRules.isScreenRecording(packageName, titleText, effectiveDevice)
-    val isScreenRecordingActive = isRecordingPackageOrKeyword && !isScreenRecordingComplete()
-    if (isScreenRecordingActive) {
-        return IslandMode.ScreenRecording
-    }
-
-    // 2. Hotspot & Tethering status (OEM-aware)
-    val isHotspot = OemDeviceRules.isHotspot(packageName, titleText)
-    if (isHotspot) {
-        return IslandMode.Hotspot
-    }
-
-    // 3. Incoming & Ongoing Phone Calls (OEM-aware)
+    // 0. Incoming & Ongoing Phone Calls (Evaluated first so VoIP calls from WhatsApp/Instagram are recognized)
     val isCallStyle = extras?.getString(Notification.EXTRA_TEMPLATE) == "android.app.Notification\$CallStyle"
     val actionLabels = actions.orEmpty().map { it.title?.toString()?.lowercase().orEmpty() }
     val hasIncomingCallActionPair =
-        actionLabels.any { it.contains("answer") || it.contains("accept") || it.contains("take") } &&
+        actionLabels.any { it.contains("answer") || it.contains("accept") || it.contains("take") || it.contains("receive") } &&
             actionLabels.any {
                 it.contains("decline") ||
                     it.contains("reject") ||
@@ -190,44 +420,128 @@ fun Notification.toIslandMode(
                     it.contains("dismiss")
             }
     val isInCallApp = OemDeviceRules.isInCallPackage(packageName, effectiveDevice)
-    val isCallEvent = (category == Notification.CATEGORY_CALL || isCallStyle || hasIncomingCallActionPair || (isInCallApp && hasIncomingCallActionPair)) && !isCallEnded()
+    val hasCallAction = actionLabels.any {
+        it.contains("answer") || it.contains("accept") || it.contains("take") ||
+            it.contains("decline") || it.contains("reject") || it.contains("hang up") ||
+            it.contains("end call") || it.contains("cancel") || it.contains("mute") ||
+            it.contains("speaker")
+    }
+    val isOngoingCall = (flags and (Notification.FLAG_ONGOING_EVENT or Notification.FLAG_FOREGROUND_SERVICE)) != 0
+    val hasCallKeyword = listOf("calling", "dialing", "incoming call", "ongoing call", "call in progress", "in call", "ringing")
+        .any { titleText.contains(it) }
+    val isInCallEvent = isInCallApp && (hasCallAction || hasCallKeyword || isOngoingCall)
+    val isCallEvent = (category == Notification.CATEGORY_CALL || isCallStyle || hasIncomingCallActionPair || isInCallEvent) && !isCallEnded()
     if (isCallEvent) {
         return IslandMode.IncomingCall
     }
 
-    // 4. Turn-by-Turn Map Navigation
+    // 1. Turn-by-Turn Map Navigation
     if (navigationEnabled && sbn != null) {
         if (NavigationParser.parse(sbn) != null) {
             return IslandMode.Navigation
         }
     }
 
-    // 5. Live Activities (Food delivery, ride-hailing)
+    // 2. Live Activities (Food delivery, ride-hailing tracking: Swiggy, Zomato, Uber, etc.)
     if (liveActivitiesEnabled && sbn != null) {
         if (LiveActivityParser.parse(sbn) != null) {
             return IslandMode.LiveActivity
         }
     }
 
-    // 6. Downloads, Uploads & Progress Transfers
+    // 3. Messaging & Social Notifications Protection
+    // Chat messages (Instagram reels/DMs, WhatsApp, Telegram, Discord, Signal, SMS) must NEVER
+    // be hijacked by Timer, Stopwatch, ScreenRecording, Hotspot, DownloadUpload, or Music.
+    // However, active media/file transfers inside messaging apps with a progress bar should flow to DownloadUpload.
+    val hasDownloadProgress = (extras?.getInt(Notification.EXTRA_PROGRESS_MAX, 0) ?: 0) > 0 &&
+        !isMessageSyncNotification(titleText) &&
+        (listOf("download", "upload", "saving", "transfer", "remaining", "left", "eta", "mb/s", "kb/s", "mb /", "gb /")
+            .any { titleText.contains(it) })
+    val isMessaging = !hasDownloadProgress && NotificationFilter.isMessagingNotification(this, packageName)
+    if (isMessaging) {
+        return IslandMode.Notification
+    }
+
+    // 4. Timer & Stopwatch (Dedicated Clock/Timer support for clock & utility apps)
+    if (TimerStopwatchParser.isStopwatch(this, packageName)) {
+        return IslandMode.Stopwatch
+    }
+    if (TimerStopwatchParser.isTimer(this, packageName)) {
+        return IslandMode.Timer
+    }
+
+    // 5. Screen & Voice Recording (High priority, OEM-aware)
+    val isRecordingPackageOrKeyword = OemDeviceRules.isScreenRecording(packageName, titleText, effectiveDevice)
+    val isScreenRecordingActive = isRecordingPackageOrKeyword && !isScreenRecordingComplete()
+    if (isScreenRecordingActive) {
+        return IslandMode.ScreenRecording
+    }
+
+    // 6. Hotspot & Tethering status (OEM-aware)
+    val isHotspot = OemDeviceRules.isHotspot(packageName, titleText)
+    if (isHotspot) {
+        return IslandMode.Hotspot
+    }
+
+    // 6. Downloads, Uploads & Progress Transfers (from Google Play Store and all apps)
     val isMessageSync = isMessageSyncNotification(titleText)
     val isProgressCategory = category == Notification.CATEGORY_PROGRESS
     val progressMax = extras?.getInt(Notification.EXTRA_PROGRESS_MAX, 0) ?: 0
     val isIndeterminate = extras?.getBoolean(Notification.EXTRA_PROGRESS_INDETERMINATE, false) == true
-    val activeTransferKeywords = listOf("downloading", "uploading", "exporting", "transferring", "saving file", "downloading file", "uploading file").any { titleText.contains(it) }
-    val genericTransferKeywords = listOf("download", "upload", "export", "transfer", "file", "apk", "pdf", "mp4", "zip", "media").any { titleText.contains(it) }
+
+    val isKnownDownloadPackage = packageName == "com.android.vending" ||
+        packageName == "com.android.providers.downloads" ||
+        packageName == "com.google.android.packageinstaller" ||
+        packageName == "com.android.packageinstaller"
+
+    val hasTimeRemainingKeyword = listOf(
+        "remaining", "left", "eta", "time remaining", "time left"
+    ).any { titleText.contains(it) }
+
+    val hasTransferSpeedKeyword = listOf(
+        "kb/s", "mb/s", "gb/s", "kbps", "mbps", "b/s", "k/s", "m/s", "bytes/s"
+    ).any { titleText.contains(it) }
+
+    val hasFileSizeKeyword = listOf(
+        "mb /", "gb /", "kb /", "bytes /", "mb of", "gb of", "kb of", "m of", "g of"
+    ).any { titleText.contains(it) }
+
+    val activeTransferKeywords = listOf(
+        "downloading", "uploading", "exporting", "transferring",
+        "saving file", "downloading file", "uploading file", "installing", "updating", "sending file"
+    ).any { titleText.contains(it) }
+
+    val genericTransferKeywords = listOf(
+        "download", "upload", "export", "apk", "pdf", "mp4", "zip", "iso", "mkv", "tar", "gz", "rar", "7z"
+    ).any { titleText.contains(it) }
+
+    val hasTransferIndicators = activeTransferKeywords ||
+        genericTransferKeywords ||
+        hasTimeRemainingKeyword ||
+        hasTransferSpeedKeyword ||
+        hasFileSizeKeyword
+
     val isDownloadOrUpload = !isMessageSync && (
         isProgressCategory ||
-        (progressMax > 0 && (genericTransferKeywords || activeTransferKeywords)) ||
-        (isIndeterminate && (genericTransferKeywords || activeTransferKeywords))
+        (isKnownDownloadPackage && (progressMax > 0 || isIndeterminate || hasTransferIndicators)) ||
+        (progressMax > 0 && (hasTransferIndicators || isKnownDownloadPackage || !isMessaging)) ||
+        (isIndeterminate && (activeTransferKeywords || isKnownDownloadPackage))
     )
     if (isDownloadOrUpload) {
         return IslandMode.DownloadUpload
     }
 
     // 7. Media & Music Playback
+    // IMPORTANT: Messaging apps (Instagram, WhatsApp, Telegram, Signal, etc.) attach a
+    // MediaSession token to voice/audio message notifications so Android can control in-app
+    // playback. We must NOT classify these as Music — doing so causes the notification (and
+    // its group summary) to be suppressed from the system shade, making the entire DM thread
+    // invisible. We only classify a notification as Music when it is genuinely a media player:
+    //   • Its category is CATEGORY_TRANSPORT (the standard media transport category), OR
+    //   • It has a media session AND is NOT a message/messaging notification.
     val hasMediaSession = extras?.containsKey(Notification.EXTRA_MEDIA_SESSION) == true
-    if (category == Notification.CATEGORY_TRANSPORT || hasMediaSession) {
+    val isMessagingNotification = NotificationFilter.isMessagingNotification(this, packageName)
+    if (!isMessagingNotification && (category == Notification.CATEGORY_TRANSPORT || hasMediaSession)) {
         return IslandMode.Music
     }
 
@@ -246,16 +560,13 @@ fun Notification.isDownloadComplete(): Boolean {
     val completionKeywords = listOf(
         "complete", "completed", "finished", "downloaded", "uploaded", "exported",
         "saved", "successful", "successfully", "done", "tap to open", "tap to view",
-        "file saved", "sent successfully"
+        "file saved", "sent successfully", "installed", "install finished"
     )
     if (completionKeywords.any { titleText.contains(it) }) return true
 
-    // If progress bar is gone (progressMax == 0 && !isIndeterminate) and text does not say "downloading/uploading", it's complete
-    val isCurrentlyActiveText = listOf("downloading", "uploading", "exporting", "transferring", "saving", "fetching", "sending").any { titleText.contains(it) }
-    if (progressMax == 0 && !isIndeterminate && !isCurrentlyActiveText) {
-        return true
-    }
-
+    // NOTE: Do NOT add a fallback here that returns true when progressMax == 0 && !isIndeterminate.
+    // That condition matches essentially EVERY regular notification (which has no progress bar at all),
+    // causing isDownloadComplete() to misfire on non-download notifications and evict them prematurely.
     return false
 }
 
@@ -270,10 +581,16 @@ fun Notification.isCallEnded(): Boolean {
     val titleText = "${extras.getCharSequence(Notification.EXTRA_TITLE)} ${extras.getCharSequence(Notification.EXTRA_TEXT)} ${extras.getCharSequence(Notification.EXTRA_BIG_TEXT)}".lowercase()
     val isOngoing = (flags and (Notification.FLAG_ONGOING_EVENT or Notification.FLAG_FOREGROUND_SERVICE)) != 0
 
+    // Ringing calls with answer action are never ended
+    val actionLabels = actions.orEmpty().map { it.title?.toString()?.lowercase().orEmpty() }
+    val hasAnswerAction = actionLabels.any {
+        it.contains("answer") || it.contains("accept") || it.contains("take") || it.contains("receive")
+    }
+    if (hasAnswerAction) return false
+
     val callEndedKeywords = listOf(
         "call ended", "call finished", "call declined", "call rejected",
-        "missed call", "missed video call", "call disconnected", "hung up",
-        "call duration", "ended"
+        "missed call", "missed video call", "call disconnected", "hung up"
     )
     if (callEndedKeywords.any { titleText.contains(it) }) return true
     if (!isOngoing && category == Notification.CATEGORY_CALL) return true

@@ -5,10 +5,30 @@
   Licensed under the GNU GPL v3 License
   Do not remove or alter this notice. - Per GPL-3.0 Section 4 & Section 5
 -->
+<!-- Feature-preserving: no backup content is included. Notification history DB,
+     DataStore preferences, and files are explicitly excluded from cloud + device
+     transfers so sensitive notification data never leaves the device. -->
 <data-extraction-rules>
     <cloud-backup>
-        <include
+        <exclude
+            domain="database"
+            path="." />
+        <exclude
             domain="sharedpref"
             path="." />
+        <exclude
+            domain="file"
+            path="." />
     </cloud-backup>
+    <device-transfer>
+        <exclude
+            domain="database"
+            path="." />
+        <exclude
+            domain="sharedpref"
+            path="." />
+        <exclude
+            domain="file"
+            path="." />
+    </device-transfer>
 </data-extraction-rules>

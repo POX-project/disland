@@ -26,12 +26,15 @@ fun IslandNotification?.sendFirstAction(context: Context, vararg keywords: Strin
         triggerAction(context, this.packageName, action.pendingIntent, action.title, this.contentIntent)
         val notificationRepository = SmartIslandRepositories.notificationRepository(context)
         notificationRepository.resetTimer()
+        val isAnswerAction = keywords.any {
+            it.contains("answer", ignoreCase = true) || it.contains("accept", ignoreCase = true)
+        }
         if (this.mode == IslandMode.Music) {
             // prune stale music keys immediately
             notificationRepository.notifications.value
                 .filter { it.mode == IslandMode.Music && it.packageName == this.packageName && it.key != this.key }
                 .forEach { notificationRepository.removeNotification(it.key) }
-        } else {
+        } else if (!isAnswerAction) {
             notificationRepository.removeNotification(this.key)
             notificationRepository.sendCommand(SmartIslandCommand.CancelNotification(this.key))
         }
@@ -46,22 +49,22 @@ fun formatDuration(valueMs: Long?): String {
 }
 
 fun triggerAction(context: Context, packageName: String, actionIntent: PendingIntent?, actionTitle: String, contentIntent: PendingIntent?) {
-    android.util.Log.d("ExpandedActions", "triggerAction: actionTitle=$actionTitle, hasActionIntent=${actionIntent != null}, hasContentIntent=${contentIntent != null}")
+    if (com.agupta07505.smartisland.BuildConfig.DEBUG) android.util.Log.d("ExpandedActions", "triggerAction: actionTitle=$actionTitle, hasActionIntent=${actionIntent != null}, hasContentIntent=${contentIntent != null}")
     if (actionIntent == null) return
 
     // If it is a Reply action, since typing inside the overlay window is blocked by focus rules,
     // trigger the main notification's content intent to open the target chat directly!
     if (actionTitle.contains("reply", ignoreCase = true) && contentIntent != null) {
-        android.util.Log.d("ExpandedActions", "triggerAction: Firing contentIntent (reply fallback)")
+        if (com.agupta07505.smartisland.BuildConfig.DEBUG) android.util.Log.d("ExpandedActions", "triggerAction: Firing contentIntent (reply fallback)")
         sendIntentWithOptions(context, contentIntent)
     } else {
-        android.util.Log.d("ExpandedActions", "triggerAction: Firing actionIntent")
+        if (com.agupta07505.smartisland.BuildConfig.DEBUG) android.util.Log.d("ExpandedActions", "triggerAction: Firing actionIntent")
         sendIntentWithOptions(context, actionIntent)
     }
 }
 
-fun sendIntentWithOptions(context: Context, pendingIntent: PendingIntent) {
-    android.util.Log.d("ExpandedActions", "sendIntentWithOptions: sending pendingIntent=$pendingIntent")
+fun sendIntentWithOptions(context: Context, pendingIntent: PendingIntent): Boolean {
+    if (com.agupta07505.smartisland.BuildConfig.DEBUG) android.util.Log.d("ExpandedActions", "sendIntentWithOptions: sending pendingIntent=$pendingIntent")
     var sent = false
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
         try {
@@ -71,7 +74,7 @@ fun sendIntentWithOptions(context: Context, pendingIntent: PendingIntent) {
             pendingIntent.send(context, 0, null, null, null, null, options)
             sent = true
         } catch (e: Exception) {
-            android.util.Log.w("ExpandedActions", "pendingIntent.send with ActivityOptions failed: ${e.message}, attempting direct send fallback")
+            if (com.agupta07505.smartisland.BuildConfig.DEBUG) android.util.Log.w("ExpandedActions", "pendingIntent.send with ActivityOptions failed: ${e.message}, attempting direct send fallback")
         }
     }
     if (!sent) {
@@ -87,4 +90,5 @@ fun sendIntentWithOptions(context: Context, pendingIntent: PendingIntent) {
             }
         }
     }
+    return sent
 }

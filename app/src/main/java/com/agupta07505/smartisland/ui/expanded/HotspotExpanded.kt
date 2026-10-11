@@ -92,7 +92,12 @@ fun HotspotExpanded(
                 HotspotUtil.openHotspotSettings(context, notification.contentIntent)
                 onCollapse()
             }
-            .padding(start = 18.dp, top = 20.dp, end = 18.dp, bottom = bottomPadding),
+            .padding(
+                start = settings.expandedContentHorizontalPadding.dp,
+                top = settings.expandedContentVerticalPadding.dp,
+                end = settings.expandedContentHorizontalPadding.dp,
+                bottom = bottomPadding
+            ),
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
         // Top Header Row matching NotificationExpanded alignment

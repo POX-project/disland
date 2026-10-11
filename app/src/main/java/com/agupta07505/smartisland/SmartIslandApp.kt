@@ -36,7 +36,7 @@ class SmartIslandApp : Application() {
             
             val vmRuntime = getRuntime.invoke(null)
             setHiddenApiExemptions.invoke(vmRuntime, arrayOf("L") as Any)
-            android.util.Log.d("SmartIslandApp", "Successfully bypassed Hidden API restrictions (unsealed reflection)")
+            if (com.agupta07505.smartisland.BuildConfig.DEBUG) android.util.Log.d("SmartIslandApp", "Successfully bypassed Hidden API restrictions (unsealed reflection)")
         } catch (e: Exception) {
             android.util.Log.e("SmartIslandApp", "Failed to bypass Hidden API restrictions", e)
         }

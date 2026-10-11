@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.wrapContentHeight
@@ -30,8 +31,21 @@ import androidx.compose.material.icons.rounded.Repeat
 import androidx.compose.material.icons.rounded.RepeatOne
 import androidx.compose.material.icons.rounded.SkipNext
 import androidx.compose.material.icons.rounded.SkipPrevious
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.rounded.FormatQuote
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextAlign
+import com.agupta07505.smartisland.R
+import com.agupta07505.smartisland.service.lyrics.LrcLibLyricsService
+import com.agupta07505.smartisland.service.lyrics.SongLyrics
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -101,6 +115,33 @@ fun MusicExpanded(
 
     var livePositionMs by remember(positionMs, controller) {
         mutableStateOf(getEstimatedPosition(controller, positionMs))
+    }
+
+    var showLyrics by remember { mutableStateOf(false) }
+    var songLyrics by remember(notification?.title, notification?.text) {
+        mutableStateOf<SongLyrics?>(null)
+    }
+    var isLyricsLoading by remember(notification?.title, notification?.text) {
+        mutableStateOf(false)
+    }
+
+    LaunchedEffect(notification?.title, notification?.text, settings.allowNetworkChecks) {
+        val track = notification?.title.orEmpty()
+        val artist = notification?.text.orEmpty()
+        // Feature-preserving: lyrics still fetch fully when user opts in via allowNetworkChecks.
+        // When opted out, skip network entirely (no silent exfiltration), keep player usable.
+        if (track.isNotBlank() && settings.allowNetworkChecks) {
+            isLyricsLoading = true
+            songLyrics = LrcLibLyricsService.getLyrics(
+                trackName = track,
+                artistName = artist,
+                durationSeconds = durationMs?.let { it / 1000.0 }
+            )
+            isLyricsLoading = false
+        } else {
+            songLyrics = null
+            isLyricsLoading = false
+        }
     }
 
     if (localIsPlaying) {
@@ -344,7 +385,12 @@ fun MusicExpanded(
             modifier = Modifier
                 .fillMaxWidth()
                 .wrapContentHeight()
-                .padding(start = 18.dp, top = 20.dp, end = 18.dp, bottom = bottomPadding)
+                .padding(
+                    start = settings.expandedContentHorizontalPadding.dp,
+                    top = settings.expandedContentVerticalPadding.dp,
+                    end = settings.expandedContentHorizontalPadding.dp,
+                    bottom = bottomPadding
+                )
         ) {
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
                 if (artwork != null) {
@@ -367,24 +413,94 @@ fun MusicExpanded(
                         .padding(8.dp)
                 )
             }
-            Column(Modifier.weight(1f)) {
-                Text(
-                    notification?.title?.takeIf { it.isNotBlank() } ?: "Song",
-                    color = Color.White,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    fontSize = 18.sp,
-                    fontWeight = FontWeight.SemiBold
-                )
-                Text(
-                    notification?.text?.takeIf { it.isNotBlank() } ?: notification?.appName ?: "Artist",
-                    color = Color(0xFFD5DAE0),
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    fontSize = 12.sp
+                Column(Modifier.weight(1f)) {
+                    Text(
+                        notification?.title?.takeIf { it.isNotBlank() } ?: "Song",
+                        color = Color.White,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    Text(
+                        notification?.text?.takeIf { it.isNotBlank() } ?: notification?.appName ?: "Artist",
+                        color = Color(0xFFD5DAE0),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        fontSize = 12.sp
+                    )
+                }
+
+                // Apple Music-style Lyrics Toggle Button
+                val hasLyrics = songLyrics?.syncedLines?.isNotEmpty() == true
+                Box(
+                    modifier = Modifier
+                        .size(34.dp)
+                        .clip(CircleShape)
+                        .background(
+                            if (showLyrics) MaterialTheme.colorScheme.primary.copy(alpha = 0.35f)
+                            else Color.White.copy(alpha = 0.12f)
+                        )
+                        .bounceClick {
+                            showLyrics = !showLyrics
+                        },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Rounded.FormatQuote,
+                        contentDescription = "Lyrics",
+                        tint = if (showLyrics) MaterialTheme.colorScheme.primary else Color.White.copy(alpha = 0.85f),
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
+            }
+
+            val activeLyricIndex = remember(songLyrics, livePositionMs) {
+                songLyrics?.syncedLines?.let {
+                    LrcLibLyricsService.getCurrentLineIndex(it, livePositionMs)
+                } ?: -1
+            }
+
+            // Compact 1-line dynamic lyric preview when lyrics panel is closed
+            if (!showLyrics && activeLyricIndex >= 0 && activeLyricIndex < (songLyrics?.syncedLines?.size ?: 0)) {
+                val currentLineText = songLyrics?.syncedLines?.get(activeLyricIndex)?.text.orEmpty()
+                if (currentLineText.isNotBlank()) {
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        text = "“$currentLineText”",
+                        color = MaterialTheme.colorScheme.primary,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Medium,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { showLyrics = true }
+                    )
+                }
+            }
+
+            val seekToLyric: (Long) -> Unit = { targetMs ->
+                livePositionMs = targetMs
+                lastSeekTimeMs = System.currentTimeMillis()
+                if (controller != null) {
+                    runCatchingLogged("MusicExpanded", "Failed to seekTo position") {
+                        controller.transportControls.seekTo(targetMs)
+                    }
+                }
+            }
+
+            // If lyrics should be above controls: render here
+            if (!settings.showLyricsUnderControls && showLyrics) {
+                Spacer(Modifier.height(8.dp))
+                SyncedLyricsView(
+                    showLyrics = showLyrics,
+                    isLyricsLoading = isLyricsLoading,
+                    songLyrics = songLyrics,
+                    activeLyricIndex = activeLyricIndex,
+                    onSeek = seekToLyric
                 )
             }
-        }
         Spacer(Modifier.height(7.dp))
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Text(formatDuration(livePositionMs), color = Color.White, fontSize = 10.sp)
@@ -532,6 +648,102 @@ fun MusicExpanded(
                 )
             }
         }
+
+        // Real-time Synced Lyrics positioned UNDER song playback controls
+        if (settings.showLyricsUnderControls && showLyrics) {
+            Spacer(Modifier.height(10.dp))
+            SyncedLyricsView(
+                showLyrics = showLyrics,
+                isLyricsLoading = isLyricsLoading,
+                songLyrics = songLyrics,
+                activeLyricIndex = activeLyricIndex,
+                onSeek = seekToLyric
+            )
+        }
     }
 }
+}
+
+@Composable
+private fun SyncedLyricsView(
+    showLyrics: Boolean,
+    isLyricsLoading: Boolean,
+    songLyrics: SongLyrics?,
+    activeLyricIndex: Int,
+    onSeek: (Long) -> Unit
+) {
+    if (!showLyrics) return
+    val lyricsListState = rememberLazyListState()
+    LaunchedEffect(activeLyricIndex) {
+        if (activeLyricIndex in 0 until (songLyrics?.syncedLines?.size ?: 0)) {
+            lyricsListState.animateScrollToItem((activeLyricIndex - 1).coerceAtLeast(0))
+        }
+    }
+
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(155.dp)
+            .clip(RoundedCornerShape(14.dp))
+            .background(Color.Black.copy(alpha = 0.38f))
+            .padding(horizontal = 8.dp, vertical = 6.dp)
+    ) {
+        when {
+            isLyricsLoading -> {
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Text(
+                        text = stringResource(R.string.lyrics_searching),
+                        color = Color.White.copy(alpha = 0.7f),
+                        fontSize = 13.sp
+                    )
+                }
+            }
+            songLyrics?.syncedLines.isNullOrEmpty() -> {
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Text(
+                        text = stringResource(R.string.lyrics_not_found),
+                        color = Color.White.copy(alpha = 0.6f),
+                        fontSize = 12.sp,
+                        textAlign = TextAlign.Center
+                    )
+                }
+            }
+            else -> {
+                LazyColumn(
+                    state = lyricsListState,
+                    modifier = Modifier.fillMaxSize(),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    itemsIndexed(songLyrics?.syncedLines.orEmpty()) { index, line ->
+                        val isActive = index == activeLyricIndex
+                        val alpha by animateFloatAsState(
+                            targetValue = if (isActive) 1f else 0.35f,
+                            label = "lyricAlpha"
+                        )
+                        val scale by animateFloatAsState(
+                            targetValue = if (isActive) 1.04f else 0.96f,
+                            label = "lyricScale"
+                        )
+                        Text(
+                            text = line.text,
+                            color = if (isActive) Color.White else Color.White.copy(alpha = alpha),
+                            fontSize = if (isActive) 16.sp else 13.sp,
+                            fontWeight = if (isActive) FontWeight.Bold else FontWeight.Normal,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .graphicsLayer {
+                                    scaleX = scale
+                                    scaleY = scale
+                                }
+                                .padding(vertical = 3.dp)
+                                .bounceClick {
+                                    onSeek(line.timeMs)
+                                }
+                        )
+                    }
+                }
+            }
+        }
+    }
 }

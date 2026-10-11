@@ -25,6 +25,11 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Check
+import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.KeyboardArrowDown
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
@@ -36,16 +41,19 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.agupta07505.smartisland.R
 import com.agupta07505.smartisland.data.SmartIslandCommand
 import com.agupta07505.smartisland.data.SmartIslandSettings
 import com.agupta07505.smartisland.di.SmartIslandRepositories
 import com.agupta07505.smartisland.model.IslandNotification
 import com.agupta07505.smartisland.ui.bounceClick
+import com.agupta07505.smartisland.ui.triggerHapticVibration
 import com.agupta07505.smartisland.util.formatNotificationTime
 
 @Composable
@@ -57,23 +65,28 @@ fun DownloadExpanded(
     settings: SmartIslandSettings = SmartIslandSettings.Default
 ) {
     val context = LocalContext.current
-    val textCombined = "${notification.title} ${notification.text}".lowercase()
+    val isDone = remember(notification) { notification.isDownloadDone }
+    val textCombined = remember(notification) { "${notification.title} ${notification.text}".lowercase() }
     val uploadKeywords = listOf("upload", "uploading", "sending", "posting", "exporting", "backing up", "backup")
     val isUpload = remember(textCombined) { uploadKeywords.any { textCombined.contains(it) } }
 
-    val accentColor = Color(settings.transferColor)
+    val accentColor = if (isDone) Color(0xFF10B981) else Color(settings.transferColor)
     val containerBadgeBg = accentColor.copy(alpha = 0.2f)
 
-    val progressFraction = remember(notification.progress, notification.progressMax) {
-        if (notification.progressMax > 0) {
+    val progressFraction = remember(notification.progress, notification.progressMax, isDone) {
+        if (isDone) {
+            1f
+        } else if (notification.progressMax > 0) {
             (notification.progress.toFloat() / notification.progressMax.toFloat()).coerceIn(0f, 1f)
         } else {
             0.45f
         }
     }
 
-    val pctText = remember(notification.progress, notification.progressMax) {
-        if (notification.progressMax > 0) {
+    val pctText = remember(notification.progress, notification.progressMax, isDone) {
+        if (isDone) {
+            "100%"
+        } else if (notification.progressMax > 0) {
             "${(progressFraction * 100).toInt()}%"
         } else {
             ""
@@ -81,12 +94,18 @@ fun DownloadExpanded(
     }
 
     // Strip out duplicate percentage text from subtitle so percentage is displayed ONCE on the right side
-    val cleanSubtitle = remember(notification.text) {
-        notification.text
+    val cleanSubtitle = remember(notification.text, isDone, isUpload) {
+        val cleaned = notification.text
             .replace(Regex("""\s*[•·-]?\s*\d+%\s*"""), "")
             .replace(Regex("""\s*\d+%\s*[•·-]?\s*"""), "")
             .trim()
-            .ifBlank { if (isUpload) "Uploading..." else "Downloading..." }
+        if (cleaned.isNotBlank()) {
+            cleaned
+        } else if (isDone) {
+            if (isUpload) "Upload complete" else "Download complete"
+        } else {
+            if (isUpload) "Uploading..." else "Downloading..."
+        }
     }
 
     Column(
@@ -100,7 +119,12 @@ fun DownloadExpanded(
                     onCollapse()
                 }
             }
-            .padding(start = 18.dp, top = 20.dp, end = 18.dp, bottom = bottomPadding),
+            .padding(
+                start = settings.expandedContentHorizontalPadding.dp,
+                top = settings.expandedContentVerticalPadding.dp,
+                end = settings.expandedContentHorizontalPadding.dp,
+                bottom = bottomPadding
+            ),
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
         // Top Header Row matching NotificationExpanded alignment
@@ -193,17 +217,32 @@ fun DownloadExpanded(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
-                        CustomBadgeTransferIcon(
-                            isUpload = isUpload,
-                            color = accentColor,
-                            modifier = Modifier.size(12.dp)
-                        )
-                        Text(
-                            text = if (isUpload) "Uploading" else "Downloading",
-                            color = accentColor,
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Bold
-                        )
+                        if (isDone) {
+                            Icon(
+                                imageVector = Icons.Rounded.Check,
+                                contentDescription = null,
+                                tint = accentColor,
+                                modifier = Modifier.size(12.dp)
+                            )
+                            Text(
+                                text = if (isUpload) "Uploaded" else "Complete",
+                                color = accentColor,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        } else {
+                            CustomBadgeTransferIcon(
+                                isUpload = isUpload,
+                                color = accentColor,
+                                modifier = Modifier.size(12.dp)
+                            )
+                            Text(
+                                text = if (isUpload) "Uploading" else "Downloading",
+                                color = accentColor,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
                     }
                 }
 
@@ -247,19 +286,100 @@ fun DownloadExpanded(
             }
         }
 
-        // Action Intents (if present)
-        if (notification.actionIntents.isNotEmpty()) {
+        // Action Intents & Dismiss Button
+        val showBottomRow = notification.actionIntents.isNotEmpty() || isDone || notification.contentIntent != null
+        if (showBottomRow) {
             Row(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                notification.actionIntents.forEach { action ->
-                    Box(
-                        modifier = Modifier
-                            .height(28.dp)
-                            .clip(RoundedCornerShape(14.dp))
-                            .background(Color(0xFFE2E8F0))
+                Row(
+                    modifier = Modifier.weight(1f, fill = false),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    if (isDone) {
+                        // Prominent Dismiss Button
+                        Box(
+                            modifier = Modifier
+                                .height(28.dp)
+                                .clip(RoundedCornerShape(14.dp))
+                                .background(Color.White.copy(alpha = 0.18f))
+                                .bounceClick {
+                                    triggerHapticVibration(context)
+                                    val repo = SmartIslandRepositories.notificationRepository(context)
+                                    repo.removeNotification(notification.key)
+                                    repo.sendCommand(SmartIslandCommand.CancelNotification(notification.key))
+                                    onCollapse()
+                                }
+                                .padding(horizontal = 12.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Rounded.Close,
+                                    contentDescription = stringResource(R.string.expanded_action_dismiss),
+                                    tint = Color.White,
+                                    modifier = Modifier.size(13.dp)
+                                )
+                                Text(
+                                    text = stringResource(R.string.expanded_action_dismiss),
+                                    color = Color.White,
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                            }
+                        }
+
+                        // Open Action (if contentIntent is available and no explicit open action exists)
+                        val hasOpenAction = notification.actionIntents.any {
+                            it.title.equals("open", ignoreCase = true) ||
+                            it.title.equals("abrir", ignoreCase = true) ||
+                            it.title.equals("打开", ignoreCase = true)
+                        }
+                        if (!hasOpenAction && notification.contentIntent != null) {
+                            Box(
+                                modifier = Modifier
+                                    .height(28.dp)
+                                    .clip(RoundedCornerShape(14.dp))
+                                    .background(Color(0xFFE2E8F0))
+                                    .bounceClick {
+                                        triggerHapticVibration(context)
+                                        onOpenNotification()
+                                    }
+                                    .padding(horizontal = 12.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = stringResource(R.string.expanded_action_open),
+                                    color = Color(0xFF1F2937),
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                            }
+                        }
+                    }
+
+                    // Relevant Action Intents
+                    val relevantActions = if (isDone) {
+                        notification.actionIntents.filter { action ->
+                            val title = action.title.lowercase()
+                            !title.contains("pause") && !title.contains("cancel") && !title.contains("stop")
+                        }
+                    } else {
+                        notification.actionIntents
+                    }
+
+                    relevantActions.forEach { action ->
+                        Box(
+                            modifier = Modifier
+                                .height(28.dp)
+                                .clip(RoundedCornerShape(14.dp))
+                                .background(Color(0xFFE2E8F0))
                             .bounceClick {
                                 if (action.pendingIntent != null) {
                                     triggerAction(context, notification.packageName, action.pendingIntent, action.title, notification.contentIntent)
@@ -283,8 +403,29 @@ fun DownloadExpanded(
                     }
                 }
             }
+
+            // Arrow to open target app (matching NotificationExpanded & LiveActivityExpanded)
+            Box(
+                modifier = Modifier
+                    .size(26.dp)
+                    .clip(CircleShape)
+                    .background(Color.White.copy(alpha = 0.15f))
+                    .bounceClick {
+                        triggerHapticVibration(context)
+                        onOpenNotification()
+                    },
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Rounded.KeyboardArrowDown,
+                    contentDescription = "Open App",
+                    tint = Color.White,
+                    modifier = Modifier.size(16.dp)
+                )
+            }
         }
     }
+}
 }
 
 @Composable

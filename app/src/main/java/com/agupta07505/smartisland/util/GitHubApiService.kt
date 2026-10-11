@@ -206,6 +206,10 @@ object GitHubApiService {
 
     private fun makeHttpGet(urlString: String): String {
         val url = URL(urlString)
+        // Feature-preserving: normal api.github.com calls work unchanged.
+        // Only blocks unexpected hosts / redirect targets to prevent exfiltration.
+        require(url.protocol == "https") { "Only HTTPS allowed" }
+        require(url.host == "api.github.com") { "Unexpected host: ${url.host}" }
         val connection = url.openConnection() as HttpURLConnection
         return try {
             connection.requestMethod = "GET"
@@ -213,16 +217,43 @@ object GitHubApiService {
             connection.readTimeout = READ_TIMEOUT_MS
             connection.setRequestProperty("User-Agent", USER_AGENT)
             connection.setRequestProperty("Accept", "application/vnd.github.v3+json")
-            connection.instanceFollowRedirects = true
+            connection.instanceFollowRedirects = false
 
-            val responseCode = connection.responseCode
+            var responseCode = connection.responseCode
+            // Follow redirects manually, only within github.com HTTPS hosts (preserves CDN redirects).
+            var redirects = 0
+            while (responseCode in 300..399 && redirects < 3) {
+                val location = connection.getHeaderField("Location") ?: break
+                val next = URL(url, location)
+                require(next.protocol == "https") { "Redirect to non-HTTPS blocked" }
+                require(next.host == "api.github.com" || next.host.endsWith(".github.com")) {
+                    "Redirect to unexpected host blocked: ${next.host}"
+                }
+                connection.disconnect()
+                return makeHttpGet(next.toString())
+            }
+
             if (responseCode !in 200..299) {
                 val errorStream = connection.errorStream
-                val errorText = errorStream?.bufferedReader()?.use { it.readText() }.orEmpty()
+                val errorText = errorStream?.bufferedReader()?.use { it.readText().take(2048) }.orEmpty()
                 throw IllegalStateException("GitHub API error HTTP $responseCode: $errorText")
             }
 
-            connection.inputStream.bufferedReader().use { it.readText() }
+            // Cap response at 1MB (normal release JSON is a few KB) — prevents OOM,
+            // preserves all legitimate GitHub payloads.
+            connection.inputStream.bufferedReader().use { reader ->
+                val sb = StringBuilder()
+                val buf = CharArray(8192)
+                var total = 0
+                while (true) {
+                    val n = reader.read(buf)
+                    if (n < 0) break
+                    total += n
+                    if (total > 1024 * 1024) throw IllegalStateException("GitHub response too large")
+                    sb.append(buf, 0, n)
+                }
+                sb.toString()
+            }
         } finally {
             connection.disconnect()
         }

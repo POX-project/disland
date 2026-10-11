@@ -60,6 +60,7 @@ import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
 import androidx.compose.material.icons.rounded.Apps
 import androidx.compose.material.icons.rounded.AvTimer
+import androidx.compose.material.icons.rounded.Bookmarks
 import androidx.compose.material.icons.rounded.BatteryChargingFull
 import androidx.compose.material.icons.rounded.BluetoothConnected
 import androidx.compose.material.icons.rounded.Call
@@ -145,6 +146,7 @@ import com.agupta07505.smartisland.ui.sections.NotificationHistorySection
 import com.agupta07505.smartisland.ui.sections.NotificationsAndPrivacySection
 import com.agupta07505.smartisland.ui.sections.PermissionsSection
 import com.agupta07505.smartisland.ui.sections.PositionsSection
+import com.agupta07505.smartisland.ui.sections.ProfilesSection
 import com.agupta07505.smartisland.ui.sections.SupportSection
 import com.agupta07505.smartisland.util.SystemServiceRecovery
 import com.agupta07505.smartisland.util.runCatchingLogged
@@ -164,7 +166,8 @@ private enum class FeatureDetailSection {
     GesturesGuide,
     PermissionsCenter,
     AboutApp,
-    SupportCommunity
+    SupportCommunity,
+    ProfilesManager
 }
 
 @SuppressLint("BatteryLife")
@@ -346,7 +349,11 @@ fun SmartIslandHomeScreen(
                         StudioTab.Position -> {
                             PositionsSection(
                                 settings = settings,
-                                repository = resolvedRepository
+                                repository = resolvedRepository,
+                                onNavigateToProfiles = {
+                                    transitionDirection = 1
+                                    activeDetailSection = FeatureDetailSection.ProfilesManager
+                                }
                             )
                         }
 
@@ -1059,6 +1066,16 @@ private fun SettingsOverviewSection(
         // Section 2: Appearance & Gesture Controls
         SettingsCategoryGroup(title = stringResource(R.string.category_appearance_controls)) {
             FeatureStudioNavigationCard(
+                title = stringResource(R.string.card_profiles_title),
+                subtitle = stringResource(R.string.card_profiles_desc),
+                icon = Icons.Rounded.Bookmarks,
+                iconColor = Color(0xFFF59E0B),
+                statusText = stringResource(R.string.status_active),
+                statusColor = Color(0xFF0F9F6E),
+                onClick = { onNavigateTo(FeatureDetailSection.ProfilesManager) }
+            )
+
+            FeatureStudioNavigationCard(
                 title = stringResource(R.string.card_color_studio_title),
                 subtitle = stringResource(R.string.card_color_studio_desc),
                 icon = Icons.Rounded.Palette,
@@ -1316,6 +1333,7 @@ private fun DetailScreenHost(
                 FeatureDetailSection.PermissionsCenter -> stringResource(R.string.detail_title_permissions_center)
                 FeatureDetailSection.AboutApp -> stringResource(R.string.detail_title_about_app)
                 FeatureDetailSection.SupportCommunity -> stringResource(R.string.detail_title_support_community)
+                FeatureDetailSection.ProfilesManager -> stringResource(R.string.detail_title_profiles)
             }
             Text(
                 text = title,
@@ -1384,6 +1402,9 @@ private fun DetailScreenHost(
             }
             FeatureDetailSection.SupportCommunity -> {
                 SupportSection()
+            }
+            FeatureDetailSection.ProfilesManager -> {
+                ProfilesSection(repository = repository, settings = settings)
             }
         }
     }

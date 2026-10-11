@@ -50,30 +50,50 @@ fun IncomingCallExpanded(
             .fillMaxWidth()
             .wrapContentHeight()
             .heightIn(min = 64.dp, max = 110.dp)
-            .padding(start = 18.dp, top = 20.dp, end = 18.dp, bottom = bottomPadding),
+            .padding(
+                start = settings.expandedContentHorizontalPadding.dp,
+                top = settings.expandedContentVerticalPadding.dp,
+                end = settings.expandedContentHorizontalPadding.dp,
+                bottom = bottomPadding
+            ),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         val isRinging = notification?.isCallRinging == true
+        val isDialing = notification?.isCallDialing == true
+        val isActive = notification?.isCallActive == true
 
         androidx.compose.foundation.layout.Column(
             modifier = Modifier.weight(1f)
         ) {
+            val contactName = notification?.title?.takeIf { it.isNotBlank() }
+            val statusText = when {
+                isRinging -> "Incoming call"
+                isDialing -> notification.text.takeIf { it.isNotBlank() && it != contactName } ?: "Calling..."
+                else -> "Active call"
+            }
             Text(
-                text = notification?.title?.takeIf { it.isNotBlank() }
-                    ?: notification?.text?.takeIf { it.isNotBlank() }
-                    ?: if (isRinging) "Incoming call" else "Active call",
+                text = contactName ?: statusText,
                 color = Color.White,
                 fontSize = 17.sp,
                 fontWeight = FontWeight.SemiBold,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
-            if (!isRinging) {
-                val time = notification?.timeMillis ?: System.currentTimeMillis()
+            if (isActive) {
+                val time = notification.timeMillis
                 com.agupta07505.smartisland.ui.CallTimer(
                     postTimeMillis = time,
                     color = Color(settings.callColor)
+                )
+            } else {
+                Text(
+                    text = statusText,
+                    color = Color.White.copy(alpha = 0.7f),
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Normal,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
                 )
             }
         }
