@@ -49,6 +49,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.Alignment
@@ -470,6 +471,11 @@ fun IslandOverlayView(
         label = "tertiaryScale"
     )
 
+    val showCollapsed by remember { derivedStateOf { collapsedAlpha > 0f } }
+    val showExpandedAlpha by remember { derivedStateOf { expandedAlpha > 0.01f } }
+    val showSecondaryAlpha by remember { derivedStateOf { secondaryAlpha > 0f } }
+    val showTertiaryAlpha by remember { derivedStateOf { tertiaryAlpha > 0f } }
+
     val expandedCompactX = screenCenter + settings.xOffset.dp - effectiveCollapsedWidth / 2f
     val secondaryOffset by animateDpAsState(
         targetValue = when {
@@ -725,7 +731,7 @@ fun IslandOverlayView(
             contentAlignment = Alignment.TopCenter
         ) {
             // Collapsed content layer (pinned to fixed pill bounds at top-center, cancelling yOffset)
-            if (collapsedAlpha > 0f) {
+            if (showCollapsed) {
                 Box(
                     modifier = Modifier
                         .width(effectiveCollapsedWidth)
@@ -747,7 +753,7 @@ fun IslandOverlayView(
             }
 
             // Expanded content layer — smoothly fade out while collapsing
-            if (expanded || expandedAlpha > 0.01f) {
+            if (expanded || showExpandedAlpha) {
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -785,7 +791,7 @@ fun IslandOverlayView(
 
         // Collapsed: secondary circle. Expanded with 2: the same item morphs
         // into a full-size pill. Expanded with 3+: it stays the circle on the right.
-        if (secondaryAlpha > 0f && secondaryNotification != null) {
+        if (showSecondaryAlpha && secondaryNotification != null) {
             Box(
                 modifier = Modifier
                     .absoluteOffset {
@@ -864,7 +870,7 @@ fun IslandOverlayView(
             }
         }
 
-        if (tertiaryAlpha > 0f && tertiaryNotification != null) {
+        if (showTertiaryAlpha && tertiaryNotification != null) {
             Box(
                 modifier = Modifier
                     .absoluteOffset {
