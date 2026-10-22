@@ -13,6 +13,41 @@ import android.content.pm.PackageManager
 import android.service.notification.StatusBarNotification
 import com.agupta07505.smartisland.model.IslandMode
 
+
+private val TORCH_KEYWORDS = listOf("flashlight", "torch", "flash light")
+private val OTP_KEYWORDS = listOf(
+    "otp", "verification code", "one-time", "one time password",
+    "security code", "auth code", "login code", "do not share",
+    "do not reply", "txn", "debited", "credited", "bank alert",
+    "transaction alert", "order confirmed", "package delivered"
+)
+private val CALL_KEYWORDS = listOf("calling", "dialing", "incoming call", "ongoing call", "call in progress", "in call", "ringing")
+private val DOWNLOAD_PROGRESS_KEYWORDS = listOf("download", "upload", "saving", "transfer", "remaining", "left", "eta", "mb/s", "kb/s", "mb /", "gb /")
+private val TIME_REMAINING_KEYWORDS = listOf("remaining", "left", "eta", "time remaining", "time left")
+private val TRANSFER_SPEED_KEYWORDS = listOf("kb/s", "mb/s", "gb/s", "kbps", "mbps", "b/s", "k/s", "m/s", "bytes/s")
+private val FILE_SIZE_KEYWORDS = listOf("mb /", "gb /", "kb /", "bytes /", "mb of", "gb of", "kb of", "m of", "g of")
+private val ACTIVE_TRANSFER_KEYWORDS = listOf("downloading", "uploading", "exporting", "transferring", "saving file", "downloading file", "uploading file", "installing", "updating", "sending file")
+private val GENERIC_TRANSFER_KEYWORDS = listOf("download", "upload", "export", "apk", "pdf", "mp4", "zip", "iso", "mkv", "tar", "gz", "rar", "7z")
+private val COMPLETION_KEYWORDS = listOf(
+    "complete", "completed", "finished", "downloaded", "uploaded", "exported",
+    "saved", "successful", "successfully", "done", "tap to open", "tap to view",
+    "file saved", "sent successfully", "installed", "install finished"
+)
+private val CALL_ENDED_KEYWORDS = listOf(
+    "call ended", "call finished", "call declined", "call rejected",
+    "missed call", "missed video call", "call disconnected", "hung up"
+)
+private val SYNC_PHRASES = listOf(
+    "syncing messages", "syncing message", "checking for messages", "checking for new messages",
+    "syncing chats", "syncing chat", "updating messages", "updating chat", "updating chats",
+    "waiting for messages", "waiting for message", "looking for messages", "looking for new messages",
+    "connecting to chat", "connecting to messages", "refreshing messages", "refreshing chats",
+    "sync in progress", "message sync", "chat sync", "syncing...", "checking messages",
+    "checking message", "syncing snaps", "checking snaps", "syncing snapchat", "synchronizing messages",
+    "synchronizing chats", "synchronizing...", "backup in progress", "syncing backup",
+    "checking for updates", "checking for chats", "connecting..."
+)
+
 object NotificationFilter {
     private val SYSTEM_LEVEL_PACKAGES = setOf(
         "android",
@@ -81,7 +116,7 @@ object NotificationFilter {
         // Suppress external torch / flashlight notifications from entering Smart Island,
         // because Smart Island natively manages physical torch state via CameraManager.TorchCallback.
         val titleText = "$extractedTitle $extractedText".lowercase()
-        val isTorchNotification = listOf("flashlight", "torch", "flash light").any { titleText.contains(it) }
+        val isTorchNotification = TORCH_KEYWORDS.any { titleText.contains(it) }
         if (isTorchNotification && packageName != "com.agupta07505.smartisland") {
             return true
         }
@@ -339,12 +374,7 @@ object NotificationFilter {
 
     fun isOtpOrTransactionalSms(text: String): Boolean {
         val lower = text.lowercase()
-        val otpKeywords = listOf(
-            "otp", "verification code", "one-time", "one time password",
-            "security code", "auth code", "login code", "do not share",
-            "do not reply", "txn", "debited", "credited", "bank alert",
-            "transaction alert", "order confirmed", "package delivered"
-        )
+        val otpKeywords = OTP_KEYWORDS
         return otpKeywords.any { lower.contains(it) }
     }
 
@@ -427,7 +457,7 @@ fun Notification.toIslandMode(
             it.contains("speaker")
     }
     val isOngoingCall = (flags and (Notification.FLAG_ONGOING_EVENT or Notification.FLAG_FOREGROUND_SERVICE)) != 0
-    val hasCallKeyword = listOf("calling", "dialing", "incoming call", "ongoing call", "call in progress", "in call", "ringing")
+    val hasCallKeyword = CALL_KEYWORDS
         .any { titleText.contains(it) }
     val isInCallEvent = isInCallApp && (hasCallAction || hasCallKeyword || isOngoingCall)
     val isCallEvent = (category == Notification.CATEGORY_CALL || isCallStyle || hasIncomingCallActionPair || isInCallEvent) && !isCallEnded()
@@ -455,7 +485,7 @@ fun Notification.toIslandMode(
     // However, active media/file transfers inside messaging apps with a progress bar should flow to DownloadUpload.
     val hasDownloadProgress = (extras?.getInt(Notification.EXTRA_PROGRESS_MAX, 0) ?: 0) > 0 &&
         !isMessageSyncNotification(titleText) &&
-        (listOf("download", "upload", "saving", "transfer", "remaining", "left", "eta", "mb/s", "kb/s", "mb /", "gb /")
+        (DOWNLOAD_PROGRESS_KEYWORDS
             .any { titleText.contains(it) })
     val isMessaging = !hasDownloadProgress && NotificationFilter.isMessagingNotification(this, packageName)
     if (isMessaging) {
@@ -494,26 +524,15 @@ fun Notification.toIslandMode(
         packageName == "com.google.android.packageinstaller" ||
         packageName == "com.android.packageinstaller"
 
-    val hasTimeRemainingKeyword = listOf(
-        "remaining", "left", "eta", "time remaining", "time left"
-    ).any { titleText.contains(it) }
+    val hasTimeRemainingKeyword = TIME_REMAINING_KEYWORDS.any { titleText.contains(it) }
 
-    val hasTransferSpeedKeyword = listOf(
-        "kb/s", "mb/s", "gb/s", "kbps", "mbps", "b/s", "k/s", "m/s", "bytes/s"
-    ).any { titleText.contains(it) }
+    val hasTransferSpeedKeyword = TRANSFER_SPEED_KEYWORDS.any { titleText.contains(it) }
 
-    val hasFileSizeKeyword = listOf(
-        "mb /", "gb /", "kb /", "bytes /", "mb of", "gb of", "kb of", "m of", "g of"
-    ).any { titleText.contains(it) }
+    val hasFileSizeKeyword = FILE_SIZE_KEYWORDS.any { titleText.contains(it) }
 
-    val activeTransferKeywords = listOf(
-        "downloading", "uploading", "exporting", "transferring",
-        "saving file", "downloading file", "uploading file", "installing", "updating", "sending file"
-    ).any { titleText.contains(it) }
+    val activeTransferKeywords = ACTIVE_TRANSFER_KEYWORDS.any { titleText.contains(it) }
 
-    val genericTransferKeywords = listOf(
-        "download", "upload", "export", "apk", "pdf", "mp4", "zip", "iso", "mkv", "tar", "gz", "rar", "7z"
-    ).any { titleText.contains(it) }
+    val genericTransferKeywords = GENERIC_TRANSFER_KEYWORDS.any { titleText.contains(it) }
 
     val hasTransferIndicators = activeTransferKeywords ||
         genericTransferKeywords ||
@@ -557,12 +576,7 @@ fun Notification.isDownloadComplete(): Boolean {
     if (progressMax > 0 && progressCurrent >= progressMax) return true
 
     val titleText = "${extras.getCharSequence(Notification.EXTRA_TITLE)} ${extras.getCharSequence(Notification.EXTRA_TEXT)} ${extras.getCharSequence(Notification.EXTRA_BIG_TEXT)}".lowercase()
-    val completionKeywords = listOf(
-        "complete", "completed", "finished", "downloaded", "uploaded", "exported",
-        "saved", "successful", "successfully", "done", "tap to open", "tap to view",
-        "file saved", "sent successfully", "installed", "install finished"
-    )
-    if (completionKeywords.any { titleText.contains(it) }) return true
+    if (COMPLETION_KEYWORDS.any { titleText.contains(it) }) return true
 
     // NOTE: Do NOT add a fallback here that returns true when progressMax == 0 && !isIndeterminate.
     // That condition matches essentially EVERY regular notification (which has no progress bar at all),
@@ -588,26 +602,12 @@ fun Notification.isCallEnded(): Boolean {
     }
     if (hasAnswerAction) return false
 
-    val callEndedKeywords = listOf(
-        "call ended", "call finished", "call declined", "call rejected",
-        "missed call", "missed video call", "call disconnected", "hung up"
-    )
-    if (callEndedKeywords.any { titleText.contains(it) }) return true
+    if (CALL_ENDED_KEYWORDS.any { titleText.contains(it) }) return true
     if (!isOngoing && category == Notification.CATEGORY_CALL) return true
 
     return false
 }
 
 fun isMessageSyncNotification(text: String): Boolean {
-    val syncPhrases = listOf(
-        "syncing messages", "syncing message", "checking for messages", "checking for new messages",
-        "syncing chats", "syncing chat", "updating messages", "updating chat", "updating chats",
-        "waiting for messages", "waiting for message", "looking for messages", "looking for new messages",
-        "connecting to chat", "connecting to messages", "refreshing messages", "refreshing chats",
-        "sync in progress", "message sync", "chat sync", "syncing...", "checking messages",
-        "checking message", "syncing snaps", "checking snaps", "syncing snapchat", "synchronizing messages",
-        "synchronizing chats", "synchronizing...", "backup in progress", "syncing backup",
-        "checking for updates", "checking for chats", "connecting..."
-    )
-    return syncPhrases.any { text.contains(it) }
+    return SYNC_PHRASES.any { text.contains(it) }
 }
