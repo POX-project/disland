@@ -147,7 +147,9 @@ fun WavyMusicSeekBar(
             // We start from the end of the left arc (startX + baseThicknessPx / 2f)
             val pathStartX = startX + baseThicknessPx / 2f
             if (endX > pathStartX) {
-                for (xInt in pathStartX.toInt()..endX.toInt()) {
+                // Performance optimization: Step by 4 pixels to reduce expensive trigonometric
+                // calculations by 75% while maintaining visual smoothness
+                for (xInt in pathStartX.toInt()..endX.toInt() step 4) {
                     val x = xInt.toFloat()
                     
                     // Damp the wave near startX and endX so it smoothly meets the flat baseline
@@ -163,6 +165,16 @@ fun WavyMusicSeekBar(
                     val y = baselineY - (baseThicknessPx / 2f) - (maxWaveHeightPx * damp * normalizedWave)
                     path.lineTo(x, y)
                 }
+
+                // Ensure we hit the exact endpoint to avoid gaps
+                val x = endX
+                val dampLeft = ((x - pathStartX) / transitionWidthPx).coerceIn(0f, 1f)
+                val dampRight = ((endX - x) / transitionWidthPx).coerceIn(0f, 1f)
+                val damp = dampLeft * dampRight
+                val waveVal = sin(x * WAVE_FREQ_1 - phase) * 0.6f + cos(x * WAVE_FREQ_2 + phase * 1.3f) * 0.4f
+                val normalizedWave = (waveVal + 1f) / 2f
+                val y = baselineY - (baseThicknessPx / 2f) - (maxWaveHeightPx * damp * normalizedWave)
+                path.lineTo(x, y)
             }
             
             // Draw down to the bottom baseline at progressX
