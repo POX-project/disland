@@ -7,6 +7,7 @@
 
 package com.agupta07505.smartisland.ui.sections
 
+
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
@@ -112,6 +113,11 @@ import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
 import java.util.Locale
+import androidx.compose.ui.platform.LocalConfiguration
+
+
+
+
 
 private data class RetentionOption(val hours: Int, val label: String)
 
@@ -217,8 +223,9 @@ fun NotificationHistorySection(
         list
     }
 
-    val groupedByDay = remember(filteredEntries) {
-        groupEntriesByDay(filteredEntries)
+    val locale = LocalConfiguration.current.locales[0]
+    val groupedByDay = remember(filteredEntries, locale) {
+        groupEntriesByDay(filteredEntries, locale)
     }
 
     // Confirm Clear All Dialog
@@ -731,9 +738,10 @@ private fun NotificationHistoryItemCard(
     var isExpanded by remember { mutableStateOf(false) }
     val appIcon = rememberAppIcon(entry.packageName)
 
-    val timeFormatted = remember(entry.postTimeMillis) {
-        val sdf = SimpleDateFormat("h:mm a", Locale.getDefault())
-        sdf.format(Date(entry.postTimeMillis))
+    val locale = LocalConfiguration.current.locales[0]
+    val timeFormatted = remember(entry.postTimeMillis, locale) {
+        java.time.format.DateTimeFormatter.ofPattern("h:mm a", locale)
+            .format(java.time.Instant.ofEpochMilli(entry.postTimeMillis).atZone(java.time.ZoneId.systemDefault()))
     }
 
     Card(
@@ -1068,9 +1076,10 @@ private fun NotificationDetailDialog(
     onDelete: () -> Unit,
     onDeleteAllFromApp: () -> Unit
 ) {
-    val fullDateFormatted = remember(entry.postTimeMillis) {
-        val sdf = SimpleDateFormat("EEEE, MMMM d, yyyy • h:mm:ss a", Locale.getDefault())
-        sdf.format(Date(entry.postTimeMillis))
+    val locale = LocalConfiguration.current.locales[0]
+    val fullDateFormatted = remember(entry.postTimeMillis, locale) {
+        java.time.format.DateTimeFormatter.ofPattern("EEEE, MMMM d, yyyy • h:mm:ss a", locale)
+            .format(java.time.Instant.ofEpochMilli(entry.postTimeMillis).atZone(java.time.ZoneId.systemDefault()))
     }
 
     Dialog(onDismissRequest = onDismiss) {
@@ -1204,19 +1213,19 @@ private fun DetailFieldItem(label: String, value: String) {
     }
 }
 
-private fun groupEntriesByDay(entries: List<NotificationHistoryEntry>): Map<String, List<NotificationHistoryEntry>> {
+private fun groupEntriesByDay(entries: List<NotificationHistoryEntry>, locale: java.util.Locale = Locale.getDefault()): Map<String, List<NotificationHistoryEntry>> {
     val result = linkedMapOf<String, MutableList<NotificationHistoryEntry>>()
     val calToday = Calendar.getInstance()
     val calYesterday = Calendar.getInstance().apply { add(Calendar.DAY_OF_YEAR, -1) }
     val calEntry = Calendar.getInstance()
-    val fullDateFormat = SimpleDateFormat("EEEE, MMMM d, yyyy", Locale.getDefault())
+    val formatter = java.time.format.DateTimeFormatter.ofPattern("EEEE, MMMM d, yyyy", locale)
 
     for (entry in entries) {
         calEntry.timeInMillis = entry.postTimeMillis
         val header = when {
             isSameDay(calToday, calEntry) -> "Today"
             isSameDay(calYesterday, calEntry) -> "Yesterday"
-            else -> fullDateFormat.format(Date(entry.postTimeMillis))
+            else -> formatter.format(java.time.Instant.ofEpochMilli(entry.postTimeMillis).atZone(java.time.ZoneId.systemDefault()))
         }
         val list = result.getOrPut(header) { mutableListOf() }
         list.add(entry)
