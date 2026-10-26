@@ -1,0 +1,4 @@
+
+## 2024-05-14 - Replace Legacy Date APIs with java.time
+**Learning:** Replaced `SimpleDateFormat`, `Date`, and `Calendar` with `java.time` equivalents (`DateTimeFormatter`, `Instant`, `LocalDate`, `ZoneId`). Legacy classes are heavy and non-thread-safe. In composables, `SimpleDateFormat` was instantiated repeatedly on recomposition. Since `DateTimeFormatter` is immutable and thread-safe, it can be cached and reused safely, avoiding repetitive instantiation costs and potential thread-safety bugs during parallel recompositions in Jetpack Compose.
+**Action:** Use `java.time` APIs instead of legacy `java.util.Date`, `java.util.Calendar`, and `java.text.SimpleDateFormat` when manipulating or formatting dates and times, especially within Compose UI where multiple instantiations hurt performance.
