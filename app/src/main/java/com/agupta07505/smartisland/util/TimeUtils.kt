@@ -7,10 +7,13 @@
 
 package com.agupta07505.smartisland.util
 
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
+import java.time.Instant
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
+
+// ⚡ Bolt: Cached, thread-safe DateTimeFormatter to avoid repeated instantiation overhead
+private val timeFormatter = DateTimeFormatter.ofPattern("HH:mm")
 
 fun formatNotificationTime(timeMillis: Long): String {
-    return SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(timeMillis))
+    return timeFormatter.format(Instant.ofEpochMilli(timeMillis).atZone(ZoneId.systemDefault()))
 }
