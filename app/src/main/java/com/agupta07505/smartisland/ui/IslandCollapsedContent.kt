@@ -75,7 +75,6 @@ import com.agupta07505.smartisland.model.IslandNotification
 import com.agupta07505.smartisland.data.SmartIslandSettings
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalDensity
-import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 

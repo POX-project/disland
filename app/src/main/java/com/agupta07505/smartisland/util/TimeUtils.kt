@@ -7,10 +7,13 @@
 
 package com.agupta07505.smartisland.util
 
-import java.text.SimpleDateFormat
-import java.util.Date
+import java.time.Instant
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 import java.util.Locale
 
+// Do not cache the formatter as static property so that it updates when the user changes locale
 fun formatNotificationTime(timeMillis: Long): String {
-    return SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(timeMillis))
+    val formatter = DateTimeFormatter.ofPattern("HH:mm", Locale.getDefault())
+    return formatter.format(Instant.ofEpochMilli(timeMillis).atZone(ZoneId.systemDefault()))
 }
