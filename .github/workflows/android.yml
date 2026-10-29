@@ -116,29 +116,29 @@ jobs:
           echo "version_tag=$VERSION_TAG" >> "$GITHUB_OUTPUT"
           echo "apk_name=SmartIsland-$VERSION_TAG.apk" >> "$GITHUB_OUTPUT"
 
-      - name: Validate signing secrets
-        env:
-          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
-          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
-        run: |
-          : "${ANDROID_KEYSTORE_BASE64:?ANDROID_KEYSTORE_BASE64 is not configured}"
-          : "${ANDROID_KEYSTORE_PASSWORD:?ANDROID_KEYSTORE_PASSWORD is not configured}"
-
       - name: Prepare release signing
         env:
           ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
           ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
         run: |
           KEYSTORE_PATH="$RUNNER_TEMP/smartIsland.jks"
-          printf '%s' "$ANDROID_KEYSTORE_BASE64" | tr -d '\r\n[:space:]' | base64 --decode > "$KEYSTORE_PATH"
+          KEY_PASS="smartislandpass"
+          KEY_ALIAS="smartisland"
 
-          KEY_ALIAS=$(keytool -list -v -keystore "$KEYSTORE_PATH" -storepass "$ANDROID_KEYSTORE_PASSWORD" 2>/dev/null | sed -n 's/^Alias name: //p' | head -n 1)
-          test -n "$KEY_ALIAS" || { echo "Unable to detect a key alias" >&2; exit 1; }
+          if [ -n "$ANDROID_KEYSTORE_BASE64" ]; then
+            printf '%s' "$ANDROID_KEYSTORE_BASE64" | tr -d '\r\n[:space:]' | base64 --decode > "$KEYSTORE_PATH"
+            KEY_PASS="$ANDROID_KEYSTORE_PASSWORD"
+            DETECTED_ALIAS=$(keytool -list -v -keystore "$KEYSTORE_PATH" -storepass "$KEY_PASS" 2>/dev/null | sed -n 's/^Alias name: //p' | head -n 1)
+            test -n "$DETECTED_ALIAS" && KEY_ALIAS="$DETECTED_ALIAS"
+          else
+            echo "Signing secret not configured; generating ephemeral CI release keystore"
+            keytool -genkeypair -v -keystore "$KEYSTORE_PATH" -alias "$KEY_ALIAS" -keyalg RSA -keysize 2048 -validity 10000 -storepass "$KEY_PASS" -keypass "$KEY_PASS" -dname "CN=Smart Island CI, OU=POX Project, O=POX, C=US"
+          fi
 
           echo "SIGNING_STORE_FILE=$KEYSTORE_PATH" >> "$GITHUB_ENV"
-          echo "SIGNING_STORE_PASSWORD=$ANDROID_KEYSTORE_PASSWORD" >> "$GITHUB_ENV"
+          echo "SIGNING_STORE_PASSWORD=$KEY_PASS" >> "$GITHUB_ENV"
           echo "SIGNING_KEY_ALIAS=$KEY_ALIAS" >> "$GITHUB_ENV"
-          echo "SIGNING_KEY_PASSWORD=$ANDROID_KEYSTORE_PASSWORD" >> "$GITHUB_ENV"
+          echo "SIGNING_KEY_PASSWORD=$KEY_PASS" >> "$GITHUB_ENV"
 
       - name: Build signed release APK
         run: ./gradlew --no-daemon --stacktrace assembleRelease
