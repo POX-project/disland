@@ -7,10 +7,20 @@
 
 package com.agupta07505.smartisland.util
 
-import java.text.SimpleDateFormat
-import java.util.Date
+import java.time.Instant
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 import java.util.Locale
 
+// Bolt optimization: Cache thread-safe DateTimeFormatter parsing logic at the file-level
+// to avoid reallocation overhead during recomposition, while allowing dynamic Zone/Locale configuration.
+private val timeFormatter = DateTimeFormatter.ofPattern("HH:mm")
+
 fun formatNotificationTime(timeMillis: Long): String {
-    return SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(timeMillis))
+    // Bolt optimization: Apply timezone and locale dynamically at the usage site
+    // so changes in system settings correctly update the UI.
+    return timeFormatter
+        .withZone(ZoneId.systemDefault())
+        .withLocale(Locale.getDefault())
+        .format(Instant.ofEpochMilli(timeMillis))
 }

@@ -108,10 +108,17 @@ import com.agupta07505.smartisland.util.runCatchingLogged
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import java.text.SimpleDateFormat
-import java.util.Calendar
-import java.util.Date
+import java.time.Instant
+import java.time.LocalDate
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 import java.util.Locale
+
+// Bolt optimization: Cache thread-safe DateTimeFormatter parsing logic at the file-level
+// to avoid reallocation overhead during recomposition, while allowing dynamic Zone/Locale configuration.
+private val TIME_FORMATTER = DateTimeFormatter.ofPattern("h:mm a")
+private val FULL_DATE_TIME_FORMATTER = DateTimeFormatter.ofPattern("EEEE, MMMM d, yyyy • h:mm:ss a")
+private val FULL_DATE_FORMATTER = DateTimeFormatter.ofPattern("EEEE, MMMM d, yyyy")
 
 private data class RetentionOption(val hours: Int, val label: String)
 
@@ -732,8 +739,12 @@ private fun NotificationHistoryItemCard(
     val appIcon = rememberAppIcon(entry.packageName)
 
     val timeFormatted = remember(entry.postTimeMillis) {
-        val sdf = SimpleDateFormat("h:mm a", Locale.getDefault())
-        sdf.format(Date(entry.postTimeMillis))
+        // Bolt optimization: Apply timezone and locale dynamically at the usage site
+        // so changes in system settings correctly update the UI.
+        TIME_FORMATTER
+            .withZone(ZoneId.systemDefault())
+            .withLocale(Locale.getDefault())
+            .format(Instant.ofEpochMilli(entry.postTimeMillis))
     }
 
     Card(
@@ -1069,8 +1080,12 @@ private fun NotificationDetailDialog(
     onDeleteAllFromApp: () -> Unit
 ) {
     val fullDateFormatted = remember(entry.postTimeMillis) {
-        val sdf = SimpleDateFormat("EEEE, MMMM d, yyyy • h:mm:ss a", Locale.getDefault())
-        sdf.format(Date(entry.postTimeMillis))
+        // Bolt optimization: Apply timezone and locale dynamically at the usage site
+        // so changes in system settings correctly update the UI.
+        FULL_DATE_TIME_FORMATTER
+            .withZone(ZoneId.systemDefault())
+            .withLocale(Locale.getDefault())
+            .format(Instant.ofEpochMilli(entry.postTimeMillis))
     }
 
     Dialog(onDismissRequest = onDismiss) {
@@ -1206,25 +1221,24 @@ private fun DetailFieldItem(label: String, value: String) {
 
 private fun groupEntriesByDay(entries: List<NotificationHistoryEntry>): Map<String, List<NotificationHistoryEntry>> {
     val result = linkedMapOf<String, MutableList<NotificationHistoryEntry>>()
-    val calToday = Calendar.getInstance()
-    val calYesterday = Calendar.getInstance().apply { add(Calendar.DAY_OF_YEAR, -1) }
-    val calEntry = Calendar.getInstance()
-    val fullDateFormat = SimpleDateFormat("EEEE, MMMM d, yyyy", Locale.getDefault())
+    val today = LocalDate.now(ZoneId.systemDefault())
+    val yesterday = today.minusDays(1)
 
     for (entry in entries) {
-        calEntry.timeInMillis = entry.postTimeMillis
-        val header = when {
-            isSameDay(calToday, calEntry) -> "Today"
-            isSameDay(calYesterday, calEntry) -> "Yesterday"
-            else -> fullDateFormat.format(Date(entry.postTimeMillis))
+        val entryDate = Instant.ofEpochMilli(entry.postTimeMillis).atZone(ZoneId.systemDefault()).toLocalDate()
+        val header = when (entryDate) {
+            today -> "Today"
+            yesterday -> "Yesterday"
+            else -> {
+                // Bolt optimization: Apply timezone and locale dynamically at the usage site
+                FULL_DATE_FORMATTER
+                    .withZone(ZoneId.systemDefault())
+                    .withLocale(Locale.getDefault())
+                    .format(entryDate)
+            }
         }
         val list = result.getOrPut(header) { mutableListOf() }
         list.add(entry)
     }
     return result
-}
-
-private fun isSameDay(cal1: Calendar, cal2: Calendar): Boolean {
-    return cal1.get(Calendar.YEAR) == cal2.get(Calendar.YEAR) &&
-        cal1.get(Calendar.DAY_OF_YEAR) == cal2.get(Calendar.DAY_OF_YEAR)
 }
