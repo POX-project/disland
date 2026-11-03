@@ -1,0 +1,3 @@
+## 2024-05-18 - Avoid SimpleDateFormat in Jetpack Compose
+**Learning:** Jetpack Compose executes recompositions on multiple threads in parallel. Using non-thread-safe objects like `SimpleDateFormat` inside composables can cause concurrency bugs and reallocation overhead.
+**Action:** Always prefer thread-safe alternatives like `java.time.format.DateTimeFormatter`. Cache the pattern parsing (`DateTimeFormatter.ofPattern(...)`) at the file level and apply `.withZone()` and `.withLocale()` dynamically at the format call site to correctly handle runtime system timezone and locale changes without requiring a process restart.
