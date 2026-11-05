@@ -108,10 +108,17 @@ import com.agupta07505.smartisland.util.runCatchingLogged
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import java.text.SimpleDateFormat
+import java.time.Instant
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 import java.util.Calendar
 import java.util.Date
 import java.util.Locale
+
+// ⚡ Bolt: Cache pattern parsing at file level to avoid overhead of allocating Formatters during recomposition
+private val timeFormatterPattern = DateTimeFormatter.ofPattern("h:mm a")
+private val fullDateFormatterPattern = DateTimeFormatter.ofPattern("EEEE, MMMM d, yyyy")
+private val preciseDateFormatterPattern = DateTimeFormatter.ofPattern("EEEE, MMMM d, yyyy • h:mm:ss a")
 
 private data class RetentionOption(val hours: Int, val label: String)
 
@@ -732,8 +739,10 @@ private fun NotificationHistoryItemCard(
     val appIcon = rememberAppIcon(entry.packageName)
 
     val timeFormatted = remember(entry.postTimeMillis) {
-        val sdf = SimpleDateFormat("h:mm a", Locale.getDefault())
-        sdf.format(Date(entry.postTimeMillis))
+        timeFormatterPattern
+            .withLocale(Locale.getDefault())
+            .withZone(ZoneId.systemDefault())
+            .format(Instant.ofEpochMilli(entry.postTimeMillis))
     }
 
     Card(
@@ -1069,8 +1078,10 @@ private fun NotificationDetailDialog(
     onDeleteAllFromApp: () -> Unit
 ) {
     val fullDateFormatted = remember(entry.postTimeMillis) {
-        val sdf = SimpleDateFormat("EEEE, MMMM d, yyyy • h:mm:ss a", Locale.getDefault())
-        sdf.format(Date(entry.postTimeMillis))
+        preciseDateFormatterPattern
+            .withLocale(Locale.getDefault())
+            .withZone(ZoneId.systemDefault())
+            .format(Instant.ofEpochMilli(entry.postTimeMillis))
     }
 
     Dialog(onDismissRequest = onDismiss) {
@@ -1209,14 +1220,14 @@ private fun groupEntriesByDay(entries: List<NotificationHistoryEntry>): Map<Stri
     val calToday = Calendar.getInstance()
     val calYesterday = Calendar.getInstance().apply { add(Calendar.DAY_OF_YEAR, -1) }
     val calEntry = Calendar.getInstance()
-    val fullDateFormat = SimpleDateFormat("EEEE, MMMM d, yyyy", Locale.getDefault())
+    val formatter = fullDateFormatterPattern.withLocale(Locale.getDefault()).withZone(ZoneId.systemDefault())
 
     for (entry in entries) {
         calEntry.timeInMillis = entry.postTimeMillis
         val header = when {
             isSameDay(calToday, calEntry) -> "Today"
             isSameDay(calYesterday, calEntry) -> "Yesterday"
-            else -> fullDateFormat.format(Date(entry.postTimeMillis))
+            else -> formatter.format(Instant.ofEpochMilli(entry.postTimeMillis))
         }
         val list = result.getOrPut(header) { mutableListOf() }
         list.add(entry)

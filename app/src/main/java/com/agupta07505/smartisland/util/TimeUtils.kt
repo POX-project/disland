@@ -7,10 +7,17 @@
 
 package com.agupta07505.smartisland.util
 
-import java.text.SimpleDateFormat
-import java.util.Date
+import java.time.Instant
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 import java.util.Locale
 
+// ⚡ Bolt: Cache pattern parsing at file level to avoid overhead of allocating Formatters during recomposition
+private val timeFormatterPattern = DateTimeFormatter.ofPattern("HH:mm")
+
 fun formatNotificationTime(timeMillis: Long): String {
-    return SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(timeMillis))
+    return timeFormatterPattern
+        .withLocale(Locale.getDefault())
+        .withZone(ZoneId.systemDefault())
+        .format(Instant.ofEpochMilli(timeMillis))
 }
