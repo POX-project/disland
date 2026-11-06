@@ -47,3 +47,13 @@
     public java.lang.String getAction();
     public java.lang.CharSequence getName();
 }
+
+-keep class com.agupta07505.smartisland.SmartIslandApp { *; }
+-keep @dagger.hilt.android.AndroidEntryPoint class * { *; }
+-keep class * extends dagger.hilt.android.AndroidEntryPoint { *; }
+-keep class * implements dagger.hilt.internal.*GeneratedComponent { *; }
+-keep class * extends Hilt_* { *; }
+
+-keep class com.agupta07505.smartisland.di.** { *; }
+-keepnames class * implements javax.inject.Provider { *; }
+-keepnames class * implements javax.inject.Factory { *; }
