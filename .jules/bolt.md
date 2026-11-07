@@ -1,0 +1,4 @@
+
+## 2026-07-21 - Thread-safe time parsing in Compose
+**Learning:** `java.text.SimpleDateFormat` is not thread-safe. Jetpack Compose executes recompositions on multiple threads concurrently. Using `SimpleDateFormat` inside composables necessitates recreating it on every render, which is a performance and allocation hit. Caching it globally leads to race conditions.
+**Action:** Replace `SimpleDateFormat` with `java.time.format.DateTimeFormatter` (available on Android via `minSdk 26` or desugaring). Cache the `DateTimeFormatter` at the file-level using `.ofPattern()`, and dynamically apply `.withZone()` and `.withLocale()` at the format call site. This provides a thread-safe, high-performance, allocation-free alternative. Avoid `java.util.Calendar` when grouping dates, prefer `java.time.LocalDate` and `.minusDays(1)` to skip allocations.
