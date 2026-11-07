@@ -276,7 +276,7 @@ User dismiss via gestures/UI -> `VM.dismissCurrent/dismissAll` calls `NR.removeN
 - Kotlin/Hilt (`kaptReleaseKotlin`, `compileReleaseKotlin`, `hiltJavaCompileRelease`) → clean compile; only deprecation/type-mismatch warnings (pre-existing, no feature impact).
 - `minifyReleaseWithR8` → **succeeded** (ProGuard keep rules verified working; no missing-class errors).
 - `lintVitalRelease` → **passed** (`abortOnError=false` but no errors emitted).
-- APK packaging: `assembleRelease` in progress at handoff (unsigned release APK expected under `app/build/outputs/apk/release/`; signing skipped since no release keystore env vars set).
+- APK packaging: **BUILD SUCCESSFUL** (exit code 0, 13m 47s, 57 tasks: 10 executed / 47 up-to-date). Unsigned release APK produced at `app/build/outputs/apk/release/app-release-unsigned.apk` (**7.9 MB**). Signing skipped since no release keystore env vars set (`SIGNING_STORE_*`).
 
 **No feature, language, icon, or permission removed.** Assets (`logo.png` + 16 screenshots, ~7 MB) are not referenced in code and are not bundled into the APK. All 32 `res/` files are referenced; manifest components are auto-kept by R8/AAPT2. Icons (`Icons.Rounded.*` from `material-icons-extended`) are tree-shaken to used glyphs only.
 
