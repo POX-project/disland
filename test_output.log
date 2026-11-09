@@ -1,0 +1,157 @@
+Fetching distribution.
+Downloading https://services.gradle.org/distributions/gradle-9.7.1-bin.zip
+..............10%..............20%...............30%..............40%...............50%..............60%...............70%..............80%..............90%...............100%
+
+Welcome to Gradle 9.7.1!
+
+Here are the highlights of this release:
+ - Isolated Projects graduates to incubating
+ - Broader Configuration Cache compatibility
+ - Resilient Sync helps you fix broken builds
+ - More source locations in problem reports
+
+For more details see https://docs.gradle.org/9.7.1/release-notes.html
+
+Starting a Gradle Daemon (subsequent builds will be faster)
+
+> Configure project :app
+WARNING: The option setting 'android.builtInKotlin=false' is deprecated.
+The current default is 'true'.
+It will be removed in version 10.0 of the Android Gradle plugin.
+WARNING: The option setting 'android.newDsl=false' is deprecated.
+The current default is 'true'.
+It will be removed in version 10.0 of the Android Gradle plugin.
+w: file:///app/app/build.gradle.kts:25:1: 'fun Project.android(configure: Action<BaseAppModuleExtension>): Unit' is deprecated. Replaced by com.android.build.api.dsl.ApplicationExtension.
+This class is not used for the public extensions in AGP when android.newDsl=true, which is the default in AGP 9.0, and will be removed in AGP 10.0.
+w: [33m[1m⚠️ Deprecated 'org.jetbrains.kotlin.android' plugin usage[0m[0m
+The 'org.jetbrains.kotlin.android' plugin in project ':app' is no longer required for Kotlin support since AGP 9.0.
+[32m[1mSolution:[0m[0m
+[32m[3mRemove both `android.builtInKotlin=true` and `android.newDsl=false` from `gradle.properties`, then migrate to built-in Kotlin.[0m[0m
+[36mSee [0m[34mhttps://kotl.in/gradle/agp-built-in-kotlin[0m[36m for more details.[0m
+
+
+> Task :app:preBuild UP-TO-DATE
+> Task :app:preDebugBuild UP-TO-DATE
+> Task :app:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :app:generateDebugBuildConfig
+> Task :app:generateDebugResources
+> Task :app:packageDebugResources
+> Task :app:processDebugNavigationResources
+> Task :app:parseDebugLocalResources
+> Task :app:javaPreCompileDebug
+> Task :app:generateDebugRFile
+> Task :app:checkDebugAarMetadata
+> Task :app:mapDebugSourceSetPaths
+> Task :app:compileDebugNavigationResources
+> Task :app:createDebugCompatibleScreenManifests
+> Task :app:extractDeepLinksDebug
+> Task :app:mergeDebugResources
+> Task :app:processDebugMainManifest
+> Task :app:processDebugManifest
+> Task :app:preDebugUnitTestBuild UP-TO-DATE
+> Task :app:processDebugManifestForPackage
+> Task :app:javaPreCompileDebugUnitTest
+> Task :app:processDebugResources
+> Task :app:kaptGenerateStubsDebugKotlin
+> Task :app:kaptDebugKotlin
+> Task :app:compileDebugKotlin
+w: file:///app/app/src/main/java/com/agupta07505/smartisland/service/SmartIslandNotificationListenerService.kt:810:48 'field audioAttributes: AudioAttributes!' is deprecated. Deprecated in Java.
+w: file:///app/app/src/main/java/com/agupta07505/smartisland/service/SmartIslandNotificationListenerService.kt:884:33 'fun get(p0: String!): Any?' is deprecated. Deprecated in Java.
+w: file:///app/app/src/main/java/com/agupta07505/smartisland/service/SmartIslandNotificationListenerService.kt:884:50 'static field EXTRA_LARGE_ICON: String' is deprecated. Deprecated in Java.
+w: file:///app/app/src/main/java/com/agupta07505/smartisland/service/SmartIslandNotificationListenerService.kt:886:36 'fun get(p0: String!): Any?' is deprecated. Deprecated in Java.
+w: file:///app/app/src/main/java/com/agupta07505/smartisland/service/SmartIslandNotificationListenerService.kt:896:39 'fun getParcelableArray(p0: String?): Array<(out) Parcelable!>?' is deprecated. Deprecated in Java.
+w: file:///app/app/src/main/java/com/agupta07505/smartisland/service/SmartIslandNotificationListenerService.kt:903:75 No cast needed.
+w: file:///app/app/src/main/java/com/agupta07505/smartisland/service/SmartIslandOverlayService.kt:726:40 'static field SOFT_INPUT_ADJUST_RESIZE: Int' is deprecated. Deprecated in Java.
+w: file:///app/app/src/main/java/com/agupta07505/smartisland/service/SmartIslandOverlayService.kt:940:89 'static field MODE_BACKGROUND_ACTIVITY_START_ALLOWED: Int' is deprecated. Deprecated in Java.
+w: file:///app/app/src/main/java/com/agupta07505/smartisland/service/lyrics/LrcLibLyricsService.kt:216:49 Java type mismatch: inferred type is 'Nothing?', but 'String' was expected.
+w: file:///app/app/src/main/java/com/agupta07505/smartisland/service/lyrics/LrcLibLyricsService.kt:219:57 Java type mismatch: inferred type is 'Nothing?', but 'String' was expected.
+w: file:///app/app/src/main/java/com/agupta07505/smartisland/ui/expanded/BatteryExpanded.kt:70:36 Unnecessary safe call on a non-null receiver of type 'String'.
+w: file:///app/app/src/main/java/com/agupta07505/smartisland/ui/expanded/ExpandedActions.kt:72:78 'static field MODE_BACKGROUND_ACTIVITY_START_ALLOWED: Int' is deprecated. Deprecated in Java.
+w: file:///app/app/src/main/java/com/agupta07505/smartisland/ui/expanded/MusicExpanded.kt:521:41 Unnecessary safe call on a non-null receiver of type 'IslandNotification'.
+w: file:///app/app/src/main/java/com/agupta07505/smartisland/ui/expanded/MusicExpanded.kt:717:44 Unnecessary safe call on a non-null receiver of type 'SongLyrics'.
+w: file:///app/app/src/main/java/com/agupta07505/smartisland/ui/expanded/NotificationExpanded.kt:361:28 Condition is always 'true'.
+w: file:///app/app/src/main/java/com/agupta07505/smartisland/ui/expanded/NotificationExpanded.kt:609:61 Condition is always 'true'.
+w: file:///app/app/src/main/java/com/agupta07505/smartisland/ui/expanded/StopwatchExpanded.kt:194:65 Condition is always 'true'.
+w: file:///app/app/src/main/java/com/agupta07505/smartisland/ui/expanded/StopwatchExpanded.kt:279:67 Condition is always 'true'.
+w: file:///app/app/src/main/java/com/agupta07505/smartisland/ui/expanded/TimerExpanded.kt:272:66 Condition is always 'true'.
+w: file:///app/app/src/main/java/com/agupta07505/smartisland/ui/sections/GesturesSection.kt:158:9 'fun ScrollableTabRow(selectedTabIndex: Int, modifier: Modifier = ..., containerColor: Color = ..., contentColor: Color = ..., edgePadding: Dp = ..., indicator: ComposableFunction1<List<TabPosition>, Unit> = ..., divider: ComposableFunction0<Unit> = ..., tabs: ComposableFunction0<Unit>): Unit' is deprecated. Replaced with PrimaryScrollableTabRow and SecondaryScrollableTabRow tab variants.
+w: file:///app/app/src/main/java/com/agupta07505/smartisland/util/CameraCutoutDetector.kt:102:55 'val defaultDisplay: Display!' is deprecated. Deprecated in Java.
+w: file:///app/app/src/main/java/com/agupta07505/smartisland/util/HotspotUtil.kt:52:86 'static field MODE_BACKGROUND_ACTIVITY_START_ALLOWED: Int' is deprecated. Deprecated in Java.
+w: file:///app/app/src/main/java/com/agupta07505/smartisland/util/NotificationContentExtractor.kt:165:30 'field bigContentView: RemoteViews!' is deprecated. Deprecated in Java.
+w: file:///app/app/src/main/java/com/agupta07505/smartisland/util/NotificationContentExtractor.kt:165:61 'field contentView: RemoteViews!' is deprecated. Deprecated in Java.
+w: file:///app/app/src/main/java/com/agupta07505/smartisland/util/NotificationContentExtractor.kt:165:89 'field headsUpContentView: RemoteViews!' is deprecated. Deprecated in Java.
+w: file:///app/app/src/main/java/com/agupta07505/smartisland/util/NotificationContentExtractor.kt:240:30 'field bigContentView: RemoteViews!' is deprecated. Deprecated in Java.
+w: file:///app/app/src/main/java/com/agupta07505/smartisland/util/NotificationContentExtractor.kt:240:61 'field contentView: RemoteViews!' is deprecated. Deprecated in Java.
+w: file:///app/app/src/main/java/com/agupta07505/smartisland/util/NotificationContentExtractor.kt:240:89 'field headsUpContentView: RemoteViews!' is deprecated. Deprecated in Java.
+w: file:///app/app/src/main/java/com/agupta07505/smartisland/util/NotificationContentExtractor.kt:306:31 'fun getParcelableArray(p0: String?): Array<(out) Parcelable!>?' is deprecated. Deprecated in Java.
+w: file:///app/app/src/main/java/com/agupta07505/smartisland/util/NotificationContentExtractor.kt:331:31 'fun getParcelableArray(p0: String?): Array<(out) Parcelable!>?' is deprecated. Deprecated in Java.
+w: file:///app/app/src/main/java/com/agupta07505/smartisland/util/NotificationContentExtractor.kt:398:33 'fun get(p0: String!): Any?' is deprecated. Deprecated in Java.
+w: file:///app/app/src/main/java/com/agupta07505/smartisland/util/NotificationContentExtractor.kt:404:34 'fun get(p0: String!): Any?' is deprecated. Deprecated in Java.
+w: file:///app/app/src/main/java/com/agupta07505/smartisland/util/NotificationContentExtractor.kt:414:33 'fun get(p0: String!): Any?' is deprecated. Deprecated in Java.
+w: file:///app/app/src/main/java/com/agupta07505/smartisland/util/NotificationContentExtractor.kt:451:34 'fun getParcelableArray(p0: String?): Array<(out) Parcelable!>?' is deprecated. Deprecated in Java.
+w: file:///app/app/src/main/java/com/agupta07505/smartisland/util/NotificationContentExtractor.kt:453:20 'fun getParcelableArray(p0: String?): Array<(out) Parcelable!>?' is deprecated. Deprecated in Java.
+w: file:///app/app/src/main/java/com/agupta07505/smartisland/util/NotificationContentExtractor.kt:462:20 'fun <T : Parcelable!> getParcelable(p0: String?): T?' is deprecated. Deprecated in Java.
+w: file:///app/app/src/main/java/com/agupta07505/smartisland/util/NotificationContentExtractor.kt:662:42 'var unreadConversation: NotificationCompat.CarExtender.UnreadConversation?' is deprecated. Deprecated in Java.
+w: file:///app/app/src/main/java/com/agupta07505/smartisland/util/NotificationFilter.kt:56:40 'fun getParcelableArray(p0: String?): Array<(out) Parcelable!>?' is deprecated. Deprecated in Java.
+w: file:///app/app/src/main/java/com/agupta07505/smartisland/util/NotificationFilter.kt:71:43 'field contentView: RemoteViews!' is deprecated. Deprecated in Java.
+w: file:///app/app/src/main/java/com/agupta07505/smartisland/util/NotificationFilter.kt:72:26 'field bigContentView: RemoteViews!' is deprecated. Deprecated in Java.
+w: file:///app/app/src/main/java/com/agupta07505/smartisland/util/NotificationFilter.kt:73:26 'field headsUpContentView: RemoteViews!' is deprecated. Deprecated in Java.
+w: file:///app/app/src/main/java/com/agupta07505/smartisland/util/NotificationFilter.kt:238:48 'fun getParcelableArray(p0: String?): Array<(out) Parcelable!>?' is deprecated. Deprecated in Java.
+
+> Task :app:compileDebugJavaWithJavac
+> Task :app:hiltCollectClassesDebug
+> Task :app:processDebugJavaRes
+> Task :app:hiltAggregateDepsDebug
+> Task :app:hiltJavaCompileDebug
+> Task :app:bundleDebugClassesToCompileJar
+> Task :app:transformDebugClassesWithAsm
+> Task :app:bundleDebugClassesToRuntimeJar
+> Task :app:kaptGenerateStubsDebugUnitTestKotlin
+
+> Task :app:kaptDebugUnitTestKotlin
+warning: The following options were not recognized by any processor: '[dagger.fastInit, dagger.hilt.android.internal.disableAndroidSuperclassValidation, dagger.hilt.android.internal.projectType, dagger.hilt.internal.useAggregatingRootProcessor, kapt.kotlin.generated]'
+
+> Task :app:compileDebugUnitTestKotlin
+w: file:///app/app/src/test/java/com/agupta07505/smartisland/model/IslandModeMappingTest.kt:41:24 'fun getParcelableArray(p0: String?): Array<(out) Parcelable!>?' is deprecated. Deprecated in Java.
+w: file:///app/app/src/test/java/com/agupta07505/smartisland/util/NotificationContentExtractorTest.kt:40:24 'fun getParcelableArray(p0: String?): Array<(out) Parcelable!>?' is deprecated. Deprecated in Java.
+w: file:///app/app/src/test/java/com/agupta07505/smartisland/util/NotificationContentExtractorTest.kt:42:24 'fun get(p0: String!): Any?' is deprecated. Deprecated in Java.
+w: file:///app/app/src/test/java/com/agupta07505/smartisland/util/NotificationContentExtractorTest.kt:73:24 'fun get(p0: String!): Any?' is deprecated. Deprecated in Java.
+w: file:///app/app/src/test/java/com/agupta07505/smartisland/util/NotificationContentExtractorTest.kt:84:24 'fun getParcelableArray(p0: String?): Array<(out) Parcelable!>?' is deprecated. Deprecated in Java.
+w: file:///app/app/src/test/java/com/agupta07505/smartisland/util/NotificationContentExtractorTest.kt:114:24 'fun getParcelableArray(p0: String?): Array<(out) Parcelable!>?' is deprecated. Deprecated in Java.
+w: file:///app/app/src/test/java/com/agupta07505/smartisland/util/NotificationContentExtractorTest.kt:115:24 'fun get(p0: String!): Any?' is deprecated. Deprecated in Java.
+w: file:///app/app/src/test/java/com/agupta07505/smartisland/util/NotificationContentExtractorTest.kt:151:24 'fun getParcelableArray(p0: String?): Array<(out) Parcelable!>?' is deprecated. Deprecated in Java.
+w: file:///app/app/src/test/java/com/agupta07505/smartisland/util/NotificationContentExtractorTest.kt:153:24 'fun get(p0: String!): Any?' is deprecated. Deprecated in Java.
+w: file:///app/app/src/test/java/com/agupta07505/smartisland/util/NotificationContentExtractorTest.kt:209:24 'fun get(p0: String!): Any?' is deprecated. Deprecated in Java.
+w: file:///app/app/src/test/java/com/agupta07505/smartisland/util/NotificationContentExtractorTest.kt:219:24 'fun getParcelableArray(p0: String?): Array<(out) Parcelable!>?' is deprecated. Deprecated in Java.
+w: file:///app/app/src/test/java/com/agupta07505/smartisland/util/NotificationContentExtractorTest.kt:261:24 'fun getParcelableArray(p0: String?): Array<(out) Parcelable!>?' is deprecated. Deprecated in Java.
+w: file:///app/app/src/test/java/com/agupta07505/smartisland/util/NotificationContentExtractorTest.kt:263:24 'fun get(p0: String!): Any?' is deprecated. Deprecated in Java.
+w: file:///app/app/src/test/java/com/agupta07505/smartisland/util/NotificationContentExtractorTest.kt:305:24 'fun getParcelableArray(p0: String?): Array<(out) Parcelable!>?' is deprecated. Deprecated in Java.
+w: file:///app/app/src/test/java/com/agupta07505/smartisland/util/NotificationContentExtractorTest.kt:307:24 'fun get(p0: String!): Any?' is deprecated. Deprecated in Java.
+w: file:///app/app/src/test/java/com/agupta07505/smartisland/util/NotificationContentExtractorTest.kt:343:24 'fun getParcelableArray(p0: String?): Array<(out) Parcelable!>?' is deprecated. Deprecated in Java.
+w: file:///app/app/src/test/java/com/agupta07505/smartisland/util/NotificationContentExtractorTest.kt:345:24 'fun get(p0: String!): Any?' is deprecated. Deprecated in Java.
+w: file:///app/app/src/test/java/com/agupta07505/smartisland/util/NotificationContentExtractorTest.kt:379:24 'fun getParcelableArray(p0: String?): Array<(out) Parcelable!>?' is deprecated. Deprecated in Java.
+w: file:///app/app/src/test/java/com/agupta07505/smartisland/util/NotificationContentExtractorTest.kt:415:24 'fun getParcelableArray(p0: String?): Array<(out) Parcelable!>?' is deprecated. Deprecated in Java.
+w: file:///app/app/src/test/java/com/agupta07505/smartisland/util/NotificationContentExtractorTest.kt:455:24 'fun getParcelableArray(p0: String?): Array<(out) Parcelable!>?' is deprecated. Deprecated in Java.
+w: file:///app/app/src/test/java/com/agupta07505/smartisland/util/NotificationContentExtractorTest.kt:484:24 'fun getParcelableArray(p0: String?): Array<(out) Parcelable!>?' is deprecated. Deprecated in Java.
+w: file:///app/app/src/test/java/com/agupta07505/smartisland/util/NotificationContentExtractorTest.kt:515:24 'fun getParcelableArray(p0: String?): Array<(out) Parcelable!>?' is deprecated. Deprecated in Java.
+
+> Task :app:compileDebugUnitTestJavaWithJavac NO-SOURCE
+> Task :app:processDebugUnitTestJavaRes
+> Task :app:hiltCollectClassesDebugUnitTest
+> Task :app:hiltAggregateDepsDebugUnitTest
+> Task :app:hiltJavaCompileDebugUnitTest NO-SOURCE
+> Task :app:transformDebugUnitTestClassesWithAsm
+OpenJDK 64-Bit Server VM warning: Sharing is only supported for boot loader classes because bootstrap classpath has been appended
+> Task :app:testDebugUnitTest
+
+[Incubating] Problems report is available at: file:///app/build/reports/problems/problems-report.html
+
+Deprecated Gradle features were used in this build, making it incompatible with Gradle 10.
+
+You can use '--warning-mode all' to show the individual deprecation warnings and determine if they come from your own scripts or plugins.
+
+For more on this, please refer to https://docs.gradle.org/9.7.1/userguide/command_line_interface.html#sec:command_line_warnings in the Gradle documentation.
+
+BUILD SUCCESSFUL in 4m 30s
+35 actionable tasks: 35 executed
+Consider enabling configuration cache to speed up this build: https://docs.gradle.org/9.7.1/userguide/configuration_cache_enabling.html
