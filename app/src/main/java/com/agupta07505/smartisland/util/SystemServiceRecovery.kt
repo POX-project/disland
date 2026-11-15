@@ -58,7 +58,9 @@ object SystemServiceRecovery {
                 PackageManager.COMPONENT_ENABLED_STATE_ENABLED,
                 PackageManager.DONT_KILL_APP
             )
-            NotificationListenerService.requestRebind(component)
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.N) {
+                NotificationListenerService.requestRebind(component)
+            }
         }
     }
 
