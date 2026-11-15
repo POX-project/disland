@@ -7,10 +7,17 @@
 
 package com.agupta07505.smartisland.util
 
-import java.text.SimpleDateFormat
-import java.util.Date
+import java.time.Instant
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 import java.util.Locale
 
+// Cache the pattern parsing for performance. Apply zone and locale dynamically.
+private val timeFormatter = DateTimeFormatter.ofPattern("HH:mm")
+
 fun formatNotificationTime(timeMillis: Long): String {
-    return SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(timeMillis))
+    return timeFormatter
+        .withZone(ZoneId.systemDefault())
+        .withLocale(Locale.getDefault())
+        .format(Instant.ofEpochMilli(timeMillis))
 }
